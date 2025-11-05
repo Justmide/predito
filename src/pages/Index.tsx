@@ -1,12 +1,26 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import Header from "@/components/Header";
+import Hero from "@/components/Hero";
+import CategoryNav from "@/components/CategoryNav";
+import MarketGrid from "@/components/MarketGrid";
 
 const Index = () => {
+  const [activeCategory, setActiveCategory] = useState("Trending");
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      <Hero />
+      <CategoryNav 
+        activeCategory={activeCategory} 
+        onCategoryChange={setActiveCategory}
+      />
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <h2 className="text-3xl font-bold mb-8 text-foreground">
+          {activeCategory} Markets
+        </h2>
+        <MarketGrid category={activeCategory} />
+      </main>
     </div>
   );
 };
