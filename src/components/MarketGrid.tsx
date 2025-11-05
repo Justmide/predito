@@ -15,7 +15,7 @@ interface MarketGridProps {
 }
 
 const fetchMarkets = async (): Promise<Market[]> => {
-  const response = await fetch("https://api.allorigins.win/raw?url=https://gamma-api.polymarket.com/markets");
+  const response = await fetch("https://corsproxy.io/?url=" + encodeURIComponent("https://gamma-api.polymarket.com/markets"));
   if (!response.ok) {
     throw new Error("Failed to fetch markets");
   }
