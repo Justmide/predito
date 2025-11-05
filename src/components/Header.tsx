@@ -10,7 +10,7 @@ const Header = () => {
             <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
               <span className="text-2xl font-bold text-primary-foreground">P</span>
             </div>
-            <span className="text-2xl font-bold text-foreground">PredictMarket</span>
+            <span className="text-2xl font-bold text-foreground">Predito</span>
           </div>
           
           <div className="flex items-center gap-3">
