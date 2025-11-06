@@ -15,27 +15,31 @@ const Header = () => {
           </Link>
           
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="gap-2 hidden sm:flex">
-              <Download className="w-4 h-4" />
-              Deposit
+            <Button asChild variant="ghost" size="sm" className="gap-2 hidden sm:flex">
+              <Link to="/deposit">
+                <Download className="w-4 h-4" />
+                Deposit
+              </Link>
             </Button>
-            <Button variant="ghost" size="sm" className="gap-2 hidden sm:flex">
-              <Upload className="w-4 h-4" />
-              Withdraw
+            <Button asChild variant="ghost" size="sm" className="gap-2 hidden sm:flex">
+              <Link to="/withdraw">
+                <Upload className="w-4 h-4" />
+                Withdraw
+              </Link>
             </Button>
             <div className="h-6 w-px bg-border hidden sm:block" />
-            <Link to="/signin">
-              <Button variant="ghost" size="sm" className="gap-2">
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link to="/signin">
                 <LogIn className="w-4 h-4" />
                 <span className="hidden sm:inline">Sign In</span>
-              </Button>
-            </Link>
-            <Link to="/signup">
-              <Button size="sm" className="gap-2">
+              </Link>
+            </Button>
+            <Button asChild size="sm" className="gap-2">
+              <Link to="/signup">
                 <UserPlus className="w-4 h-4" />
                 <span className="hidden sm:inline">Sign Up</span>
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
