@@ -44,6 +44,11 @@ const MarketCard = ({ market }: MarketCardProps) => {
   const hasTrend = Math.random() > 0.5; // Placeholder since API doesn't provide this
   const isPositive = Math.random() > 0.5;
 
+  // Ensure outcomes is an array
+  const outcomesArray: Outcome[] = Array.isArray(market.outcomes) 
+    ? market.outcomes 
+    : Object.values(market.outcomes || {}) as Outcome[];
+
   return (
     <Card className="p-5 hover:shadow-card-hover transition-all duration-300 cursor-pointer group bg-card border-border">
       <div className="space-y-4">
@@ -65,7 +70,7 @@ const MarketCard = ({ market }: MarketCardProps) => {
 
         {/* Outcomes */}
         <div className="space-y-2">
-          {market.outcomes.slice(0, 2).map((outcome, index) => (
+          {outcomesArray.slice(0, 2).map((outcome, index) => (
             <div key={index} className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">{outcome.name}</span>
               <div className="flex items-center gap-2">
