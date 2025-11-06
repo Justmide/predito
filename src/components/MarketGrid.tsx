@@ -15,7 +15,7 @@ interface MarketGridProps {
 }
 
 const fetchMarkets = async (): Promise<Market[]> => {
-  const response = await fetch("https://corsproxy.io/?url=" + encodeURIComponent("https://gamma-api.polymarket.com/markets"));
+  const response = await fetch("https://corsproxy.io/?url=" + encodeURIComponent("https://gamma-api.polymarket.com/markets?limit=100"));
   if (!response.ok) {
     throw new Error("Failed to fetch markets");
   }
@@ -31,10 +31,10 @@ const MarketGrid = ({ category }: MarketGridProps) => {
 
   const filterMarketsByCategory = (markets: Market[]) => {
     if (category === "Trending") {
-      // Show markets with highest volume for trending
+      // Show top 20 markets with highest volume for trending
       return markets
         .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
-        .slice(0, 12);
+        .slice(0, 20);
     }
 
     // Filter by tags/category
@@ -46,7 +46,7 @@ const MarketGrid = ({ category }: MarketGridProps) => {
           tag.toLowerCase().includes(categoryLower)
         );
       })
-      .slice(0, 12);
+      .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume));
   };
 
   if (isLoading) {
