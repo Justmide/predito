@@ -5,14 +5,18 @@ const categories = [
   "Sports",
   "Politics", 
   "Crypto",
+  "World Events",
   "Entertainment",
+  "Business & Finance",
 ];
 
 const subcategories: Record<string, string[]> = {
-  "Sports": ["Premier League", "NBA", "Tennis", "UFC"],
-  "Politics": ["US Elections", "World Politics", "Policy"],
-  "Crypto": ["Bitcoin", "Ethereum", "Altcoins"],
-  "Entertainment": ["Movies", "Music", "Awards"],
+  "Sports": ["Premier League", "Champions League", "La Liga", "NBA", "NFL", "Tennis", "Formula 1", "Boxing", "Cricket", "Golf"],
+  "Politics": ["US Presidential Election", "UK Politics", "Global Politics", "State Elections", "Policy Decisions", "Approval Ratings"],
+  "Crypto": ["Bitcoin", "Ethereum", "Altcoins", "DeFi", "NFTs", "Meme Coins", "Market Trends"],
+  "World Events": ["Climate Change", "Conflicts & Wars", "Natural Disasters", "Space Exploration", "Health Pandemics"],
+  "Entertainment": ["Movies", "Music Awards", "Celebrity News", "TV Shows", "Gaming"],
+  "Business & Finance": ["Stock Market", "Tech Companies", "Startups", "Commodities", "Real Estate"],
 };
 
 interface CategoryNavProps {
