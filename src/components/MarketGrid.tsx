@@ -131,55 +131,26 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
   );
 };
 
-// Dummy data component for subcategories
+// TODO: Connect to API here - Placeholder component for subcategory markets
 const SubcategoryMarkets = ({ category, subcategory }: { category: string; subcategory: string }) => {
-  const dummyMarkets = Array.from({ length: 12 }, (_, i) => ({
-    id: `${category}-${subcategory}-${i}`,
-    question: `Will ${subcategory} prediction #${i + 1} come true?`,
-    yesPrice: Math.floor(Math.random() * 100),
-    noPrice: Math.floor(Math.random() * 100),
-    category,
-    subcategory,
-    date: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-  }));
+  // TODO: Replace this with actual API call to fetch markets filtered by category and subcategory
+  // Example: const { data: markets } = useQuery(['markets', category, subcategory], () => fetchMarketsBySubcategory(category, subcategory));
+  
+  const markets: any[] = []; // TODO: Connect to API endpoint
+
+  if (markets.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-muted-foreground text-lg">No markets available in {subcategory}.</p>
+        <p className="text-muted-foreground text-sm mt-2">Connect to API to load market data.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
-      {dummyMarkets.map((market) => (
-        <div
-          key={market.id}
-          className="bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.02] flex flex-col h-full"
-        >
-          <div className="w-full h-32 bg-muted rounded-md mb-4 flex items-center justify-center">
-            <span className="text-muted-foreground text-sm">Image Placeholder</span>
-          </div>
-          
-          <div className="flex gap-2 mb-3 flex-wrap">
-            <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full font-medium">
-              {market.category}
-            </span>
-            <span className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded-full">
-              {market.subcategory}
-            </span>
-          </div>
-          
-          <h3 className="font-semibold text-foreground mb-4 line-clamp-2 flex-grow">
-            {market.question}
-          </h3>
-          
-          <div className="flex gap-2 mb-3">
-            <div className="flex-1 bg-green-50 dark:bg-green-950 rounded p-2">
-              <p className="text-xs text-muted-foreground mb-1">YES</p>
-              <p className="text-lg font-bold text-green-600 dark:text-green-400">{market.yesPrice}%</p>
-            </div>
-            <div className="flex-1 bg-red-50 dark:bg-red-950 rounded p-2">
-              <p className="text-xs text-muted-foreground mb-1">NO</p>
-              <p className="text-lg font-bold text-red-600 dark:text-red-400">{market.noPrice}%</p>
-            </div>
-          </div>
-          
-          <p className="text-xs text-muted-foreground">Ends: {market.date}</p>
-        </div>
+      {markets.map((market) => (
+        <MarketCard key={market.id} market={market} />
       ))}
     </div>
   );

@@ -41,9 +41,10 @@ const MarketCard = ({ market, isLive = false }: MarketCardProps) => {
     }
   };
 
-  // Check if there's a price change to show trend
-  const hasTrend = Math.random() > 0.5; // Placeholder since API doesn't provide this
-  const isPositive = Math.random() > 0.5;
+  // TODO: Connect to API for real-time price change data
+  // When API provides price history, calculate trend from historical data
+  const hasTrend = false; // TODO: Replace with actual trend calculation
+  const isPositive = false; // TODO: Replace with actual trend direction
 
   // Ensure outcomes is an array
   const outcomesArray: Outcome[] = Array.isArray(market.outcomes) 
