@@ -18,9 +18,10 @@ interface Market {
 
 interface MarketCardProps {
   market: Market;
+  isLive?: boolean;
 }
 
-const MarketCard = ({ market }: MarketCardProps) => {
+const MarketCard = ({ market, isLive = false }: MarketCardProps) => {
   const formatVolume = (volume: string) => {
     const num = parseFloat(volume);
     if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
@@ -52,16 +53,24 @@ const MarketCard = ({ market }: MarketCardProps) => {
   return (
     <Card className="p-5 hover:shadow-card-hover transition-all duration-300 cursor-pointer group bg-card border-border">
       <div className="space-y-4">
-        {/* Tags */}
-        {market.tags && market.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {market.tags.slice(0, 2).map((tag, i) => (
-              <Badge key={i} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {/* Live Badge and Tags */}
+        <div className="flex flex-wrap gap-2">
+          {isLive && (
+            <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-full">
+              <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-red-600 dark:text-red-400 text-xs font-semibold">LIVE</span>
+            </div>
+          )}
+          {market.tags && market.tags.length > 0 && (
+            <>
+              {market.tags.slice(0, 2).map((tag, i) => (
+                <Badge key={i} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </>
+          )}
+        </div>
 
         {/* Question */}
         <h3 className="text-base font-semibold text-card-foreground line-clamp-3 group-hover:text-primary transition-colors">

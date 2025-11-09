@@ -38,7 +38,30 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
         .slice(0, 20);
     }
 
-    // If subcategory is selected, show dummy data for now
+    // Handle "Live" subcategory specially
+    if (subcategory === "Live") {
+      const categoryLower = category.toLowerCase();
+      // Filter by category and show active markets (ending soon)
+      return markets
+        .filter((market) => {
+          if (!market.tags || market.tags.length === 0) return false;
+          const hasCategory = market.tags.some(tag => 
+            tag.toLowerCase().includes(categoryLower)
+          );
+          // Check if market ends within 7 days (consider it "live")
+          const endDate = new Date(market.end_date_iso);
+          const now = new Date();
+          const daysUntilEnd = (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+          return hasCategory && daysUntilEnd > 0 && daysUntilEnd <= 7;
+        })
+        .sort((a, b) => {
+          // Sort by volume (most active first)
+          return parseFloat(b.volume) - parseFloat(a.volume);
+        })
+        .slice(0, 20);
+    }
+
+    // If subcategory is selected (not Live), show dummy data for now
     if (subcategory) {
       return [];
     }
@@ -73,9 +96,22 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
 
   const filteredMarkets = filterMarketsByCategory(markets || []);
 
-  // Show dummy data if subcategory is selected
-  if (subcategory) {
+  // Show dummy data if subcategory is selected (except for "Live")
+  if (subcategory && subcategory !== "Live") {
     return <SubcategoryMarkets category={category} subcategory={subcategory} />;
+  }
+
+  // Handle "Live" with no results
+  if (subcategory === "Live" && filteredMarkets.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-950 rounded-full mb-4">
+          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <span className="text-red-600 dark:text-red-400 font-medium">LIVE</span>
+        </div>
+        <p className="text-muted-foreground text-lg">No live markets currently</p>
+      </div>
+    );
   }
 
   if (filteredMarkets.length === 0) {
@@ -87,9 +123,9 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
       {filteredMarkets.map((market, index) => (
-        <MarketCard key={index} market={market} />
+        <MarketCard key={index} market={market} isLive={subcategory === "Live"} />
       ))}
     </div>
   );
