@@ -27,14 +27,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
     
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+    if (storedToken && storedUser && storedUser !== 'undefined') {
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        // Clear invalid data
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        console.error('Failed to parse stored user data:', error);
+      }
     }
     setIsLoading(false);
   }, []);
 
   const login = (newToken: string, newUser: User) => {
+    if (!newToken || !newUser) {
+      console.error('Invalid login data provided');
+      return;
+    }
     localStorage.setItem('auth_token', newToken);
     localStorage.setItem('auth_user', JSON.stringify(newUser));
     setToken(newToken);
