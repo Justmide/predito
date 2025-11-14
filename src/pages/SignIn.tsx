@@ -23,7 +23,10 @@ const SignIn = () => {
       const response = await authService.login(email, password);
       login(response.token, response.user);
       toast.success("Login successful!");
-      navigate("/");
+      // Small delay to ensure state updates before navigation
+      setTimeout(() => {
+        navigate("/");
+      }, 100);
     } catch (error: any) {
       toast.error(error.message || "Login failed. Please try again.");
     } finally {

@@ -8,6 +8,9 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Also check localStorage as fallback for immediate post-login navigation
+  const hasStoredToken = localStorage.getItem('auth_token');
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -19,7 +22,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !hasStoredToken) {
     return <Navigate to="/signin" replace />;
   }
 
