@@ -22,15 +22,22 @@ const SignIn = () => {
     try {
       const response = await authService.login(email, password);
       
-      // Verify backend returned correct data
-      if (!response.token || !response.user) {
+      console.log("Login response:", response);
+      
+      // Handle different response structures
+      const token = response.token || response.accessToken || response.data?.token;
+      const user = response.user || response.data?.user || response.data;
+      
+      if (!token || !user) {
+        console.error("Invalid response structure:", response);
         throw new Error("Invalid response from server");
       }
       
-      login(response.token, response.user);
+      login(token, user);
       toast.success("Login successful!");
       navigate("/");
     } catch (error: any) {
+      console.error("Login error:", error);
       toast.error(error.message || "Login failed. Please try again.");
     } finally {
       setIsLoading(false);
