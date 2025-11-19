@@ -21,12 +21,15 @@ const SignIn = () => {
 
     try {
       const response = await authService.login(email, password);
+      
+      // Verify backend returned correct data
+      if (!response.token || !response.user) {
+        throw new Error("Invalid response from server");
+      }
+      
       login(response.token, response.user);
       toast.success("Login successful!");
-      // Small delay to ensure state updates before navigation
-      setTimeout(() => {
-        navigate("/");
-      }, 100);
+      navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Login failed. Please try again.");
     } finally {

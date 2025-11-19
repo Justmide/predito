@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { checkGeoRestriction, GeoLocation } from '@/services/geoService';
 import { AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
@@ -8,47 +7,34 @@ interface GeoRestrictionProps {
 }
 
 const GeoRestriction = ({ children }: GeoRestrictionProps) => {
-  const [geoStatus, setGeoStatus] = useState<{
-    loading: boolean;
-    location: GeoLocation | null;
-  }>({
-    loading: true,
-    location: null,
-  });
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [detectedTimezone, setDetectedTimezone] = useState("");
 
   useEffect(() => {
-    const checkLocation = async () => {
-      const location = await checkGeoRestriction();
-      setGeoStatus({
-        loading: false,
-        location,
-      });
-
-      // Store in sessionStorage to avoid checking again during the session
-      sessionStorage.setItem('geo_checked', 'true');
-      sessionStorage.setItem('geo_restricted', location.isRestricted.toString());
-      sessionStorage.setItem('geo_country', location.country);
+    const checkTimezone = () => {
+      try {
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        setDetectedTimezone(userTimezone);
+        
+        // Only block if explicitly Africa/Lagos (weaker restriction, bypassable with VPN)
+        if (userTimezone.includes("Lagos")) {
+          setIsBlocked(true);
+        } else {
+          setIsBlocked(false);
+        }
+      } catch (error) {
+        console.error('Timezone check failed:', error);
+        // Fail open - allow access if check fails
+        setIsBlocked(false);
+      }
+      setLoading(false);
     };
 
-    // Check if we already verified in this session
-    const alreadyChecked = sessionStorage.getItem('geo_checked');
-    if (alreadyChecked) {
-      const isRestricted = sessionStorage.getItem('geo_restricted') === 'true';
-      const country = sessionStorage.getItem('geo_country') || 'Unknown';
-      setGeoStatus({
-        loading: false,
-        location: {
-          country,
-          countryCode: '',
-          isRestricted,
-        },
-      });
-    } else {
-      checkLocation();
-    }
+    checkTimezone();
   }, []);
 
-  if (geoStatus.loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6">
         <div className="text-center">
@@ -59,7 +45,7 @@ const GeoRestriction = ({ children }: GeoRestrictionProps) => {
     );
   }
 
-  if (geoStatus.location?.isRestricted) {
+  if (isBlocked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6 py-12">
         <Card className="max-w-md p-8 space-y-6 text-center">
@@ -78,12 +64,11 @@ const GeoRestriction = ({ children }: GeoRestrictionProps) => {
 
           <div className="pt-4 space-y-2 text-sm text-muted-foreground">
             <p>
-              <strong>Detected location:</strong> {geoStatus.location.country}
+              <strong>Detected timezone:</strong> {detectedTimezone}
             </p>
             <p className="text-xs">
               This platform complies with international regulations and is not accessible 
-              from certain jurisdictions, including the United States, United Kingdom, 
-              and other restricted territories.
+              from certain jurisdictions.
             </p>
           </div>
 

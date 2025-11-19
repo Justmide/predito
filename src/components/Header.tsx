@@ -1,10 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { LogIn, UserPlus, Download, Upload, LogOut, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/signin');
+  };
 
   return (
     <header className="border-b border-border bg-background sticky top-0 z-50">
@@ -41,7 +47,7 @@ const Header = () => {
                   variant="ghost" 
                   size="sm" 
                   className="gap-2"
-                  onClick={logout}
+                  onClick={handleLogout}
                 >
                   <LogOut className="w-4 h-4" />
                   <span className="hidden sm:inline">Logout</span>
