@@ -36,8 +36,8 @@ const SignUp = () => {
 
     try {
       const response = await authService.register(username, email, password);
-      toast.success(response.message || "Registration successful! Please check your email.");
-      navigate("/verify", { state: { email } });
+      toast.success(response.message || "Registration successful! Please check your email and sign in.");
+      navigate("/signin");
     } catch (error: any) {
       toast.error(error.message || "Registration failed. Please try again.");
     } finally {
