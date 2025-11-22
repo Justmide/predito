@@ -1,27 +1,14 @@
-// Polymarket restricted countries based on their official policy
+// Restricted countries based on user specification
 export const RESTRICTED_COUNTRIES = [
   'US', // United States
   'GB', // United Kingdom
   'FR', // France
-  'BE', // Belgium
-  'PL', // Poland
   'SG', // Singapore
-  'AU', // Australia
-  'TW', // Taiwan
+  'PL', // Poland
   'TH', // Thailand
-  'CA', // Canada (Ontario specifically, but blocking all of Canada for simplicity)
-  'RO', // Romania
-  // US-sanctioned countries
-  'IR', // Iran
-  'KP', // North Korea
-  'SY', // Syria
-  'CU', // Cuba
-  'VE', // Venezuela
-  'BY', // Belarus
-  'MM', // Myanmar
-  'ZW', // Zimbabwe
-  'SD', // Sudan
-  'RU', // Russia (due to sanctions)
+  'AU', // Australia
+  'BE', // Belgium
+  'TW', // Taiwan
 ];
 
 export interface GeoLocation {
