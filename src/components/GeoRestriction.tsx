@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { checkGeoRestriction } from '@/services/geoService';
 
 interface GeoRestrictionProps {
   children: React.ReactNode;
@@ -9,29 +10,25 @@ interface GeoRestrictionProps {
 const GeoRestriction = ({ children }: GeoRestrictionProps) => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [detectedTimezone, setDetectedTimezone] = useState("");
+  const [detectedCountry, setDetectedCountry] = useState("");
 
   useEffect(() => {
-    const checkTimezone = () => {
+    const checkLocation = async () => {
       try {
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        setDetectedTimezone(userTimezone);
-        
-        // Only block if explicitly Africa/Lagos (weaker restriction, bypassable with VPN)
-        if (userTimezone.includes("Lagos")) {
-          setIsBlocked(true);
-        } else {
-          setIsBlocked(false);
-        }
+        const geoData = await checkGeoRestriction();
+        setDetectedCountry(geoData.country);
+        setIsBlocked(geoData.isRestricted);
       } catch (error) {
-        console.error('Timezone check failed:', error);
+        console.error('Geo-restriction check failed:', error);
         // Fail open - allow access if check fails
         setIsBlocked(false);
+        setDetectedCountry('Unknown');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    checkTimezone();
+    checkLocation();
   }, []);
 
   if (loading) {
@@ -64,7 +61,7 @@ const GeoRestriction = ({ children }: GeoRestrictionProps) => {
 
           <div className="pt-4 space-y-2 text-sm text-muted-foreground">
             <p>
-              <strong>Detected timezone:</strong> {detectedTimezone}
+              <strong>Detected location:</strong> {detectedCountry}
             </p>
             <p className="text-xs">
               This platform complies with international regulations and is not accessible 
