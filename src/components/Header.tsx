@@ -26,14 +26,20 @@ const Header = () => {
           <div className="flex items-center gap-3">
             {isAuthenticated && (
               <>
-                <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
+                <Button asChild variant="ghost" size="sm" className="hidden md:flex">
                   <Link to="/markets">Markets</Link>
                 </Button>
-                <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
+                <Button asChild variant="ghost" size="sm" className="hidden md:flex">
                   <Link to="/wallet">Wallet</Link>
                 </Button>
-                <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
+                <Button asChild variant="ghost" size="sm" className="hidden md:flex">
                   <Link to="/positions">Positions</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="hidden lg:flex">
+                  <Link to="/trades">Trades</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="hidden lg:flex">
+                  <Link to="/pnl">P&L</Link>
                 </Button>
                 <div className="h-6 w-px bg-border hidden sm:block" />
                 <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg">

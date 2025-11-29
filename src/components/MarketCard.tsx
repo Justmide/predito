@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, TrendingUp, TrendingDown } from "lucide-react";
@@ -9,6 +10,7 @@ interface Outcome {
 }
 
 interface Market {
+  id?: string;
   question: string;
   outcomes: Outcome[];
   volume: string;
@@ -22,6 +24,14 @@ interface MarketCardProps {
 }
 
 const MarketCard = ({ market, isLive = false }: MarketCardProps) => {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (market.id) {
+      navigate(`/market/${market.id}`);
+    }
+  };
+
   const formatVolume = (volume: string) => {
     const num = parseFloat(volume);
     if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
@@ -52,7 +62,10 @@ const MarketCard = ({ market, isLive = false }: MarketCardProps) => {
     : Object.values(market.outcomes || {}) as Outcome[];
 
   return (
-    <Card className="p-5 hover:shadow-card-hover transition-all duration-300 cursor-pointer group bg-card border-border">
+    <Card 
+      onClick={handleClick}
+      className="p-5 hover:shadow-card-hover transition-all duration-300 cursor-pointer group bg-card border-border"
+    >
       <div className="space-y-4">
         {/* Live Badge and Tags */}
         <div className="flex flex-wrap gap-2">
