@@ -19,6 +19,19 @@ const MarketDetails = () => {
   const [loading, setLoading] = useState(true);
   const [selectedOutcome, setSelectedOutcome] = useState<string>("");
 
+  // Helper to normalize outcomes from string or array format
+  const normalizeOutcomes = (outcomes: string | Array<{ name: string; price: string }>): Array<{ name: string; price: string }> => {
+    if (typeof outcomes === 'string') {
+      try {
+        const parsed = JSON.parse(outcomes);
+        return parsed.map((name: string) => ({ name, price: "0.5" }));
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(outcomes) ? outcomes : [];
+  };
+
   useEffect(() => {
     if (!marketId) {
       navigate("/markets");
@@ -31,9 +44,10 @@ const MarketDetails = () => {
         const data = await marketService.getMarket(marketId);
         setMarket(data);
         
-        // Set first outcome as default selection
-        if (data.outcomes && data.outcomes.length > 0) {
-          setSelectedOutcome(data.outcomes[0].name);
+        // Normalize outcomes and set first outcome as default selection
+        const normalizedOutcomes = Array.isArray(data.outcomes) ? data.outcomes : [];
+        if (normalizedOutcomes.length > 0) {
+          setSelectedOutcome(normalizedOutcomes[0].name);
         }
       } catch (error) {
         toast.error("Failed to load market details");
@@ -90,6 +104,9 @@ const MarketDetails = () => {
     );
   }
 
+  const normalizedOutcomes = normalizeOutcomes(market.outcomes);
+  const endDate = market.endDateIso || market.end_date_iso || "";
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -134,7 +151,7 @@ const MarketDetails = () => {
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="w-4 h-4" />
-                  <span>{getTimeRemaining(market.end_date_iso)}</span>
+                  <span>{getTimeRemaining(endDate)}</span>
                 </div>
               </div>
             </div>
@@ -163,7 +180,7 @@ const MarketDetails = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {market.outcomes.map((outcome, index) => {
+                {normalizedOutcomes.map((outcome, index) => {
                   const price = parseFloat(outcome.price);
                   const percentage = (price * 100).toFixed(1);
                   
@@ -218,7 +235,7 @@ const MarketDetails = () => {
                 <TradingInterface
                   marketId={market.id}
                   selectedOutcome={selectedOutcome}
-                  outcomes={market.outcomes}
+                  outcomes={normalizedOutcomes}
                   onOutcomeChange={setSelectedOutcome}
                 />
               ) : (
@@ -277,7 +294,7 @@ const MarketDetails = () => {
                 </div>
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">End Date</span>
-                  <span>{new Date(market.end_date_iso).toLocaleString()}</span>
+                  <span>{new Date(endDate).toLocaleString()}</span>
                 </div>
                 {market.category && (
                   <div className="flex justify-between py-2 border-b">

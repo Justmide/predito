@@ -16,10 +16,16 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
   });
 
   const filterMarketsByCategory = (markets: Market[]) => {
+    // Ensure markets is always an array
+    if (!Array.isArray(markets)) {
+      console.error('Markets is not an array:', markets);
+      return [];
+    }
+
     if (category === "Trending") {
       // Show top 20 markets with highest volume for trending
       return markets
-        .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume))
+        .sort((a, b) => parseFloat(b.volume || "0") - parseFloat(a.volume || "0"))
         .slice(0, 20);
     }
 
@@ -41,7 +47,7 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
         })
         .sort((a, b) => {
           // Sort by volume (most active first)
-          return parseFloat(b.volume) - parseFloat(a.volume);
+          return parseFloat(b.volume || "0") - parseFloat(a.volume || "0");
         })
         .slice(0, 20);
     }
@@ -60,7 +66,7 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
           tag.toLowerCase().includes(categoryLower)
         );
       })
-      .sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume));
+      .sort((a, b) => parseFloat(b.volume || "0") - parseFloat(a.volume || "0"));
   };
 
   if (isLoading) {
