@@ -1,32 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import MarketCard from "./MarketCard";
 import { Loader2 } from "lucide-react";
-
-interface Market {
-  question: string;
-  outcomes: { price: string; name: string }[];
-  volume: string;
-  end_date_iso: string;
-  tags?: string[];
-}
+import { marketService, Market } from "@/services/marketService";
 
 interface MarketGridProps {
   category: string;
   subcategory: string;
 }
 
-const fetchMarkets = async (): Promise<Market[]> => {
-  const response = await fetch("https://corsproxy.io/?url=" + encodeURIComponent("https://gamma-api.polymarket.com/markets?limit=100"));
-  if (!response.ok) {
-    throw new Error("Failed to fetch markets");
-  }
-  return response.json();
-};
-
 const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
   const { data: markets, isLoading, error } = useQuery({
     queryKey: ["markets"],
-    queryFn: fetchMarkets,
+    queryFn: () => marketService.getMarkets(100),
     staleTime: 60000, // Cache for 1 minute
   });
 

@@ -1,81 +1,118 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Header from "@/components/Header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { withdrawalService } from "@/services/withdrawalService";
 
 const Withdraw = () => {
+  const { token, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [currency, setCurrency] = useState("USDC");
   const [amount, setAmount] = useState("");
   const [destinationAddress, setDestinationAddress] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleWithdraw = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/signin");
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount to withdraw.",
-        variant: "destructive",
-      });
+      toast.error("Please enter a valid amount");
       return;
     }
-
+    
     if (!destinationAddress) {
-      toast({
-        title: "Missing Wallet Address",
-        description: "Please enter a destination wallet address.",
-        variant: "destructive",
-      });
+      toast.error("Please enter a destination address");
+      return;
+    }
+    
+    if (!token) {
+      toast.error("Please sign in to withdraw");
       return;
     }
 
-    // Dummy function placeholder
-    toast({
-      title: "Withdrawal Successful!",
-      description: `Successfully withdrew ${amount} USDC to ${destinationAddress.substring(0, 10)}...`,
-    });
-
-    // Reset form
-    setAmount("");
-    setDestinationAddress("");
+    try {
+      setLoading(true);
+      await withdrawalService.initiateWithdrawal(token, {
+        currency,
+        amount,
+        destinationAddress,
+      });
+      
+      toast.success("Withdrawal initiated successfully");
+      setAmount("");
+      setDestinationAddress("");
+      
+      // Redirect to wallet after 2 seconds
+      setTimeout(() => navigate("/wallet"), 2000);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to initiate withdrawal");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="max-w-3xl mx-auto px-6 py-12">
+        <Link to="/wallet" className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Wallet
         </Link>
+        
+        <h1 className="text-4xl font-bold mb-8 text-foreground">Withdraw Funds</h1>
 
-        <Card className="shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Withdraw Funds</CardTitle>
+        <Card>
+          <CardHeader>
+            <CardTitle>Withdraw from your wallet</CardTitle>
             <CardDescription>
-              Transfer USDC from your account to an external wallet
+              Transfer funds from your Predito wallet to an external address
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleWithdraw} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Withdrawal Amount (USDC)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  step="0.01"
-                  min="0"
-                  required
-                />
+                <Label htmlFor="currency">Currency</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USDC">USDC</SelectItem>
+                    <SelectItem value="USDT">USDT</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="destination">Destination Wallet Address</Label>
+                <Label htmlFor="amount">Amount</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="destination">Destination Address</Label>
                 <Input
                   id="destination"
                   type="text"
@@ -85,17 +122,17 @@ const Withdraw = () => {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Ensure this address is correct. Transactions cannot be reversed.
+                  Please double-check the address. Transactions cannot be reversed.
                 </p>
               </div>
 
-              <Button type="submit" className="w-full" size="lg">
-                Withdraw
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Processing..." : "Withdraw"}
               </Button>
             </form>
           </CardContent>
         </Card>
-      </div>
+      </main>
     </div>
   );
 };

@@ -26,17 +26,14 @@ const Header = () => {
           <div className="flex items-center gap-3">
             {isAuthenticated && (
               <>
-                <Button asChild variant="ghost" size="sm" className="gap-2 hidden sm:flex">
-                  <Link to="/deposit">
-                    <Download className="w-4 h-4" />
-                    Deposit
-                  </Link>
+                <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
+                  <Link to="/markets">Markets</Link>
                 </Button>
-                <Button asChild variant="ghost" size="sm" className="gap-2 hidden sm:flex">
-                  <Link to="/withdraw">
-                    <Upload className="w-4 h-4" />
-                    Withdraw
-                  </Link>
+                <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
+                  <Link to="/wallet">Wallet</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
+                  <Link to="/positions">Positions</Link>
                 </Button>
                 <div className="h-6 w-px bg-border hidden sm:block" />
                 <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg">

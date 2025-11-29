@@ -1,91 +1,108 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import Header from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { ArrowLeft, Copy } from "lucide-react";
+import { walletService, DepositAddress } from "@/services/walletService";
 
 const Deposit = () => {
-  const [amount, setAmount] = useState("");
-  const [walletAddress, setWalletAddress] = useState("");
+  const { token, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [depositAddresses, setDepositAddresses] = useState<DepositAddress[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleDeposit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount to deposit.",
-        variant: "destructive",
-      });
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/signin");
       return;
     }
 
-    // Dummy function placeholder
-    toast({
-      title: "Deposit Successful!",
-      description: `Successfully deposited ${amount} USDC${walletAddress ? ` from ${walletAddress}` : ""}.`,
-    });
+    const fetchAddresses = async () => {
+      try {
+        setLoading(true);
+        const addresses = await walletService.getDepositAddresses(token || undefined);
+        setDepositAddresses(addresses);
+      } catch (error) {
+        toast.error("Failed to load deposit addresses");
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Reset form
-    setAmount("");
-    setWalletAddress("");
+    fetchAddresses();
+  }, [token, isAuthenticated, navigate]);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Address copied to clipboard");
   };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
-        </Link>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
-        <Card className="shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Deposit Funds</CardTitle>
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="max-w-3xl mx-auto px-6 py-12">
+        <Link to="/wallet" className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Wallet
+        </Link>
+        
+        <h1 className="text-4xl font-bold mb-8 text-foreground">Deposit Funds</h1>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Deposit Addresses</CardTitle>
             <CardDescription>
-              Add USDC to your account to start trading on prediction markets
+              Send funds to these addresses to deposit into your Predito wallet
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleDeposit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount (USDC)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  step="0.01"
-                  min="0"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="wallet">Wallet Address (Optional)</Label>
-                <Input
-                  id="wallet"
-                  type="text"
-                  placeholder="0x..."
-                  value={walletAddress}
-                  onChange={(e) => setWalletAddress(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave empty to use your connected wallet
-                </p>
-              </div>
-
-              <Button type="submit" className="w-full" size="lg">
-                Deposit
-              </Button>
-            </form>
+            <div className="space-y-4">
+              {depositAddresses.map((addr) => (
+                <div key={addr.currency} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-foreground">{addr.currency}</h3>
+                    <span className="text-sm text-muted-foreground">{addr.network}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 p-2 bg-muted rounded text-sm font-mono break-all">
+                      {addr.address}
+                    </code>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(addr.address)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Note:</strong> Only send supported tokens to these addresses. 
+                Sending other tokens may result in permanent loss of funds.
+              </p>
+            </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     </div>
   );
 };
