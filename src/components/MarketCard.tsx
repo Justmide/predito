@@ -12,9 +12,10 @@ interface Outcome {
 interface Market {
   id?: string;
   question: string;
-  outcomes: Outcome[];
+  outcomes: Outcome[] | string;
   volume: string;
-  end_date_iso: string;
+  end_date_iso?: string;
+  endDateIso?: string;
   tags?: string[];
 }
 
@@ -56,10 +57,21 @@ const MarketCard = ({ market, isLive = false }: MarketCardProps) => {
   const hasTrend = false; // TODO: Replace with actual trend calculation
   const isPositive = false; // TODO: Replace with actual trend direction
 
-  // Ensure outcomes is an array
-  const outcomesArray: Outcome[] = Array.isArray(market.outcomes) 
-    ? market.outcomes 
-    : Object.values(market.outcomes || {}) as Outcome[];
+  // Normalize outcomes - handle both string and array formats
+  let outcomesArray: Outcome[] = [];
+  if (typeof market.outcomes === 'string') {
+    try {
+      const parsed = JSON.parse(market.outcomes);
+      outcomesArray = parsed.map((name: string) => ({ name, price: "0.5" }));
+    } catch {
+      outcomesArray = [];
+    }
+  } else if (Array.isArray(market.outcomes)) {
+    outcomesArray = market.outcomes;
+  }
+
+  // Use endDateIso or end_date_iso
+  const endDate = market.endDateIso || market.end_date_iso || "";
 
   return (
     <Card 
@@ -116,7 +128,7 @@ const MarketCard = ({ market, isLive = false }: MarketCardProps) => {
         <div className="flex justify-between items-center pt-3 border-t border-border">
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
-            <span>{getTimeRemaining(market.end_date_iso)}</span>
+            <span>{getTimeRemaining(endDate)}</span>
           </div>
           <div className="text-xs font-medium text-muted-foreground">
             Vol: {formatVolume(market.volume)}

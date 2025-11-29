@@ -3,9 +3,10 @@ const API_BASE_URL = 'https://predito-middleware.onrender.com/api/v1';
 export interface Market {
   id: string;
   question: string;
-  outcomes: Array<{ name: string; price: string }>;
+  outcomes: string | Array<{ name: string; price: string }>; // Can be string or array
   volume: string;
-  end_date_iso: string;
+  end_date_iso?: string;
+  endDateIso?: string; // API uses this format
   category?: string;
   tags?: string[];
   description?: string;
@@ -28,7 +29,18 @@ export const marketService = {
     if (!response.ok) {
       throw new Error('Failed to fetch markets');
     }
-    return response.json();
+    const json = await response.json();
+    // API returns {status: "success", data: [...]} - extract the data array
+    const markets = json.data || [];
+    
+    // Normalize market data
+    return markets.map((market: any) => ({
+      ...market,
+      end_date_iso: market.endDateIso || market.end_date_iso,
+      outcomes: typeof market.outcomes === 'string' 
+        ? JSON.parse(market.outcomes).map((name: string) => ({ name, price: "0.5" }))
+        : market.outcomes,
+    }));
   },
 
   async searchMarkets(query: string): Promise<Market[]> {
@@ -36,7 +48,16 @@ export const marketService = {
     if (!response.ok) {
       throw new Error('Failed to search markets');
     }
-    return response.json();
+    const json = await response.json();
+    const markets = json.data || [];
+    
+    return markets.map((market: any) => ({
+      ...market,
+      end_date_iso: market.endDateIso || market.end_date_iso,
+      outcomes: typeof market.outcomes === 'string' 
+        ? JSON.parse(market.outcomes).map((name: string) => ({ name, price: "0.5" }))
+        : market.outcomes,
+    }));
   },
 
   async getMarket(marketId: string): Promise<Market> {
@@ -44,7 +65,16 @@ export const marketService = {
     if (!response.ok) {
       throw new Error('Failed to fetch market details');
     }
-    return response.json();
+    const json = await response.json();
+    const market = json.data || json;
+    
+    return {
+      ...market,
+      end_date_iso: market.endDateIso || market.end_date_iso,
+      outcomes: typeof market.outcomes === 'string' 
+        ? JSON.parse(market.outcomes).map((name: string) => ({ name, price: "0.5" }))
+        : market.outcomes,
+    };
   },
 
   async getOrderbook(marketId: string): Promise<Orderbook> {
@@ -52,6 +82,7 @@ export const marketService = {
     if (!response.ok) {
       throw new Error('Failed to fetch orderbook');
     }
-    return response.json();
+    const json = await response.json();
+    return json.data || json;
   },
 };
