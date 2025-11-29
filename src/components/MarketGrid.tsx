@@ -29,26 +29,33 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
         .slice(0, 20);
     }
 
-    // Handle "Live" subcategory specially
+    // Category keyword mapping for filtering since API doesn't have tags
+    const categoryKeywords: Record<string, string[]> = {
+      "Crypto": ["bitcoin", "btc", "ethereum", "eth", "crypto", "xrp", "solana", "sol", "altcoin", "defi", "nft", "coin", "token", "blockchain"],
+      "Sports": ["sport", "football", "soccer", "basketball", "nba", "nfl", "tennis", "baseball", "cricket", "formula 1", "f1", "boxing", "ufc", "golf", "premier league", "champions league"],
+      "Politics": ["election", "president", "government", "congress", "senate", "vote", "policy", "political", "democrat", "republican", "prime minister", "parliament"],
+      "World Events": ["war", "conflict", "climate", "disaster", "pandemic", "global", "international", "world", "crisis"],
+      "Entertainment": ["movie", "film", "music", "celebrity", "award", "oscar", "grammy", "show", "series", "netflix", "streaming", "actor", "actress"],
+      "Business & Finance": ["stock", "market", "trade", "economy", "gdp", "inflation", "company", "tech", "startup", "real estate", "commodity"]
+    };
+
+    // Get keywords for current category
+    const keywords = categoryKeywords[category] || [];
+
+    // Handle "Live" subcategory
     if (subcategory === "Live") {
-      const categoryLower = category.toLowerCase();
-      // Filter by category and show active markets (ending soon)
       return markets
         .filter((market) => {
-          if (!market.tags || market.tags.length === 0) return false;
-          const hasCategory = market.tags.some(tag => 
-            tag.toLowerCase().includes(categoryLower)
-          );
+          const question = market.question.toLowerCase();
+          const hasKeyword = keywords.some(keyword => question.includes(keyword));
+          
           // Check if market ends within 7 days (consider it "live")
-          const endDate = new Date(market.end_date_iso);
+          const endDate = new Date(market.endDateIso || market.end_date_iso || "");
           const now = new Date();
           const daysUntilEnd = (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-          return hasCategory && daysUntilEnd > 0 && daysUntilEnd <= 7;
+          return hasKeyword && daysUntilEnd > 0 && daysUntilEnd <= 7;
         })
-        .sort((a, b) => {
-          // Sort by volume (most active first)
-          return parseFloat(b.volume || "0") - parseFloat(a.volume || "0");
-        })
+        .sort((a, b) => parseFloat(b.volume || "0") - parseFloat(a.volume || "0"))
         .slice(0, 20);
     }
 
@@ -57,16 +64,23 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
       return [];
     }
 
-    // Filter by tags/category
-    const categoryLower = category.toLowerCase();
+    // Filter by category keywords
+    if (keywords.length > 0) {
+      const filtered = markets.filter((market) => {
+        const question = market.question.toLowerCase();
+        return keywords.some(keyword => question.includes(keyword));
+      });
+      
+      // If filtered results exist, return them sorted by volume
+      if (filtered.length > 0) {
+        return filtered.sort((a, b) => parseFloat(b.volume || "0") - parseFloat(a.volume || "0"));
+      }
+    }
+
+    // If no keywords match or no keywords defined, show all markets
     return markets
-      .filter((market) => {
-        if (!market.tags || market.tags.length === 0) return false;
-        return market.tags.some(tag => 
-          tag.toLowerCase().includes(categoryLower)
-        );
-      })
-      .sort((a, b) => parseFloat(b.volume || "0") - parseFloat(a.volume || "0"));
+      .sort((a, b) => parseFloat(b.volume || "0") - parseFloat(a.volume || "0"))
+      .slice(0, 20);
   };
 
   if (isLoading) {
