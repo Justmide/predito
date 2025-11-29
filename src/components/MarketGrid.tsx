@@ -39,15 +39,68 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
       "Business & Finance": ["stock", "market", "trade", "economy", "gdp", "inflation", "company", "tech", "startup", "real estate", "commodity"]
     };
 
+    // Subcategory keyword mapping
+    const subcategoryKeywords: Record<string, string[]> = {
+      // Sports subcategories
+      "Premier League": ["premier league", "epl", "manchester", "liverpool", "chelsea", "arsenal", "tottenham"],
+      "Champions League": ["champions league", "ucl", "uefa"],
+      "La Liga": ["la liga", "barcelona", "real madrid", "atletico"],
+      "NBA": ["nba", "basketball", "lakers", "warriors", "celtics", "lebron", "curry"],
+      "NFL": ["nfl", "football", "super bowl", "patriots", "cowboys", "chiefs"],
+      "Tennis": ["tennis", "wimbledon", "us open", "french open", "australian open", "federer", "nadal", "djokovic"],
+      "Formula 1": ["formula 1", "f1", "grand prix", "verstappen", "hamilton", "racing"],
+      "Boxing": ["boxing", "fight", "heavyweight", "ufc", "mma"],
+      "Cricket": ["cricket", "ipl", "test", "odi", "world cup"],
+      "Golf": ["golf", "pga", "masters", "tiger woods"],
+      
+      // Politics subcategories
+      "US Presidential Election": ["us election", "presidential", "biden", "trump", "white house"],
+      "UK Politics": ["uk", "britain", "british", "boris", "sunak", "labour", "conservative", "parliament"],
+      "Global Politics": ["global", "international", "summit", "g7", "g20", "un", "nato"],
+      "State Elections": ["state", "governor", "senate race", "house race"],
+      "Policy Decisions": ["policy", "bill", "legislation", "law", "regulation"],
+      "Approval Ratings": ["approval", "rating", "poll"],
+      
+      // Crypto subcategories
+      "Bitcoin": ["bitcoin", "btc"],
+      "Ethereum": ["ethereum", "eth", "vitalik"],
+      "Altcoins": ["altcoin", "xrp", "cardano", "ada", "solana", "sol", "polkadot", "dot"],
+      "DeFi": ["defi", "decentralized finance", "yield", "liquidity", "lending"],
+      "NFTs": ["nft", "non-fungible", "bored ape", "opensea"],
+      "Meme Coins": ["meme", "doge", "shiba", "pepe"],
+      "Market Trends": ["bull", "bear", "crash", "pump", "rally", "correction"],
+      
+      // World Events subcategories
+      "Climate Change": ["climate", "global warming", "carbon", "emissions", "temperature"],
+      "Conflicts & Wars": ["war", "conflict", "military", "invasion", "troops"],
+      "Natural Disasters": ["disaster", "earthquake", "hurricane", "flood", "tsunami", "wildfire"],
+      "Space Exploration": ["space", "nasa", "spacex", "mars", "moon", "rocket", "astronaut"],
+      "Health Pandemics": ["pandemic", "covid", "virus", "vaccine", "outbreak", "disease"],
+      
+      // Entertainment subcategories
+      "Movies": ["movie", "film", "box office", "oscar", "academy award"],
+      "Music Awards": ["grammy", "music award", "billboard", "album"],
+      "Celebrity News": ["celebrity", "star", "actor", "actress", "scandal"],
+      "TV Shows": ["tv", "series", "netflix", "hbo", "streaming", "season"],
+      "Gaming": ["game", "gaming", "esports", "playstation", "xbox", "nintendo"],
+      
+      // Business & Finance subcategories
+      "Stock Market": ["stock", "s&p", "dow", "nasdaq", "index", "share price"],
+      "Tech Companies": ["apple", "google", "microsoft", "amazon", "meta", "tesla", "nvidia"],
+      "Startups": ["startup", "ipo", "funding", "venture capital", "unicorn"],
+      "Commodities": ["gold", "oil", "commodity", "crude", "silver"],
+      "Real Estate": ["real estate", "housing", "property", "mortgage"]
+    };
+
     // Get keywords for current category
-    const keywords = categoryKeywords[category] || [];
+    const categoryKeys = categoryKeywords[category] || [];
 
     // Handle "Live" subcategory
     if (subcategory === "Live") {
       return markets
         .filter((market) => {
           const question = market.question.toLowerCase();
-          const hasKeyword = keywords.some(keyword => question.includes(keyword));
+          const hasKeyword = categoryKeys.some(keyword => question.includes(keyword));
           
           // Check if market ends within 7 days (consider it "live")
           const endDate = new Date(market.endDateIso || market.end_date_iso || "");
@@ -59,16 +112,30 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
         .slice(0, 20);
     }
 
-    // If subcategory is selected (not Live), show dummy data for now
+    // Handle specific subcategory selection
     if (subcategory) {
+      const subcatKeys = subcategoryKeywords[subcategory] || [];
+      
+      if (subcatKeys.length > 0) {
+        const filtered = markets.filter((market) => {
+          const question = market.question.toLowerCase();
+          // Must match both category AND subcategory keywords
+          const matchesCategory = categoryKeys.some(keyword => question.includes(keyword));
+          const matchesSubcategory = subcatKeys.some(keyword => question.includes(keyword));
+          return matchesCategory && matchesSubcategory;
+        });
+        
+        return filtered.sort((a, b) => parseFloat(b.volume || "0") - parseFloat(a.volume || "0"));
+      }
+      
       return [];
     }
 
-    // Filter by category keywords
-    if (keywords.length > 0) {
+    // Filter by category keywords only (no subcategory selected)
+    if (categoryKeys.length > 0) {
       const filtered = markets.filter((market) => {
         const question = market.question.toLowerCase();
-        return keywords.some(keyword => question.includes(keyword));
+        return categoryKeys.some(keyword => question.includes(keyword));
       });
       
       // If filtered results exist, return them sorted by volume
@@ -101,11 +168,6 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
 
   const filteredMarkets = filterMarketsByCategory(markets || []);
 
-  // Show dummy data if subcategory is selected (except for "Live")
-  if (subcategory && subcategory !== "Live") {
-    return <SubcategoryMarkets category={category} subcategory={subcategory} />;
-  }
-
   // Handle "Live" with no results
   if (subcategory === "Live" && filteredMarkets.length === 0) {
     return (
@@ -122,7 +184,12 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
   if (filteredMarkets.length === 0) {
     return (
       <div className="text-center py-20">
-        <p className="text-muted-foreground text-lg">No markets found in this category.</p>
+        <p className="text-muted-foreground text-lg">
+          {subcategory 
+            ? `No markets found for ${subcategory} in ${category}.` 
+            : `No markets found in ${category}.`
+          }
+        </p>
       </div>
     );
   }
@@ -131,31 +198,6 @@ const MarketGrid = ({ category, subcategory }: MarketGridProps) => {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
       {filteredMarkets.map((market, index) => (
         <MarketCard key={index} market={market} isLive={subcategory === "Live"} />
-      ))}
-    </div>
-  );
-};
-
-// TODO: Connect to API here - Placeholder component for subcategory markets
-const SubcategoryMarkets = ({ category, subcategory }: { category: string; subcategory: string }) => {
-  // TODO: Replace this with actual API call to fetch markets filtered by category and subcategory
-  // Example: const { data: markets } = useQuery(['markets', category, subcategory], () => fetchMarketsBySubcategory(category, subcategory));
-  
-  const markets: any[] = []; // TODO: Connect to API endpoint
-
-  if (markets.length === 0) {
-    return (
-      <div className="text-center py-20">
-        <p className="text-muted-foreground text-lg">No markets available in {subcategory}.</p>
-        <p className="text-muted-foreground text-sm mt-2">Connect to API to load market data.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
-      {markets.map((market) => (
-        <MarketCard key={market.id} market={market} />
       ))}
     </div>
   );
