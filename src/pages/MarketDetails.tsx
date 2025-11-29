@@ -49,10 +49,28 @@ const MarketDetails = () => {
         if (normalizedOutcomes.length > 0) {
           setSelectedOutcome(normalizedOutcomes[0].name);
         }
-      } catch (error) {
-        toast.error("Failed to load market details");
-        console.error(error);
-        navigate("/markets");
+      } catch (error: any) {
+        console.error("Market details error:", error);
+        
+        // If the single market endpoint doesn't work, try to get data from markets list
+        try {
+          const allMarkets = await marketService.getMarkets(100);
+          const foundMarket = allMarkets.find(m => m.id === marketId);
+          
+          if (foundMarket) {
+            setMarket(foundMarket);
+            const normalizedOutcomes = Array.isArray(foundMarket.outcomes) ? foundMarket.outcomes : [];
+            if (normalizedOutcomes.length > 0) {
+              setSelectedOutcome(normalizedOutcomes[0].name);
+            }
+          } else {
+            toast.error("Market not found");
+            navigate("/markets");
+          }
+        } catch (listError) {
+          toast.error("Failed to load market details");
+          navigate("/markets");
+        }
       } finally {
         setLoading(false);
       }
