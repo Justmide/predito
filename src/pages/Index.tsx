@@ -6,20 +6,24 @@ import MarketGrid from "@/components/MarketGrid";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState("Trending");
-  const [activeSubcategory, setActiveSubcategory] = useState("");
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [activeSubcategory, setActiveSubcategory] = useState("All");
 
   const handleCategoryChange = (category: string) => {
-    setIsTransitioning(true);
     setActiveCategory(category);
-    setActiveSubcategory("");
-    setTimeout(() => setIsTransitioning(false), 300);
+    setActiveSubcategory("All"); // Reset to "All" when category changes
   };
 
   const handleSubcategoryChange = (subcategory: string) => {
-    setIsTransitioning(true);
     setActiveSubcategory(subcategory);
-    setTimeout(() => setIsTransitioning(false), 300);
+  };
+
+  // Build display title
+  const getDisplayTitle = () => {
+    if (activeCategory === "Trending") return "Trending Markets";
+    if (activeSubcategory && activeSubcategory !== "All") {
+      return `${activeSubcategory} Markets`;
+    }
+    return `${activeCategory} Markets`;
   };
 
   return (
@@ -34,15 +38,12 @@ const Index = () => {
       />
       <main className="max-w-7xl mx-auto px-6 py-12">
         <h2 className="text-3xl font-bold mb-8 text-foreground">
-          {activeSubcategory || activeCategory} Markets
+          {getDisplayTitle()}
         </h2>
-        {isTransitioning ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        ) : (
-          <MarketGrid category={activeCategory} subcategory={activeSubcategory} />
-        )}
+        <MarketGrid 
+          category={activeCategory} 
+          subcategory={activeSubcategory}
+        />
       </main>
     </div>
   );
