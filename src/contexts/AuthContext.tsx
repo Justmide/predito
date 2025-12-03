@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
 interface User {
   id: string;
@@ -17,10 +17,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to decode JWT and check expiration
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp * 1000; // Convert to milliseconds
+    return Date.now() >= exp;
+  } catch {
+    return true; // If we can't decode, treat as expired
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    setToken(null);
+    setUser(null);
+  }, []);
 
   useEffect(() => {
     // Check for stored auth on mount
@@ -28,18 +46,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedUser = localStorage.getItem('auth_user');
     
     if (storedToken && storedUser && storedUser !== 'undefined') {
-      try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        // Clear invalid data
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        console.error('Failed to parse stored user data:', error);
+      // Check if token is expired
+      if (isTokenExpired(storedToken)) {
+        console.log('Token expired, logging out');
+        logout();
+      } else {
+        try {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          // Clear invalid data
+          logout();
+          console.error('Failed to parse stored user data:', error);
+        }
       }
     }
     setIsLoading(false);
-  }, []);
+  }, [logout]);
 
   const login = (newToken: string, newUser: User) => {
     if (!newToken || !newUser) {
@@ -52,12 +75,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(newUser);
   };
 
-  const logout = () => {
-    localStorage.clear();
-    setToken(null);
-    setUser(null);
-  };
-
   return (
     <AuthContext.Provider 
       value={{ 
@@ -65,7 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         token, 
         login, 
         logout, 
-        isAuthenticated: !!token,
+        isAuthenticated: !!token && !isTokenExpired(token),
         isLoading 
       }}
     >
