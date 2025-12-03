@@ -1,7 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Hero = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <div className="bg-gradient-primary text-primary-foreground py-20 px-6">
       <div className="max-w-6xl mx-auto text-center">
@@ -13,20 +17,25 @@ const Hero = () => {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Button 
+            asChild
             size="lg" 
             variant="secondary"
-            className="gap-2 text-lg px-8 py-6 bg-white hover:bg-white/90 text-primary"
+            className="gap-2 text-lg px-8 py-6 bg-white hover:bg-white/90 text-primary font-semibold"
           >
-            <TrendingUp className="w-5 h-5" />
-            Explore Markets
+            <Link to="/markets">
+              <TrendingUp className="w-5 h-5" />
+              Explore Markets
+            </Link>
           </Button>
           <Button 
+            asChild
             size="lg" 
-            variant="outline"
-            className="gap-2 text-lg px-8 py-6 border-2 border-white text-white hover:bg-white hover:text-primary"
+            className="gap-2 text-lg px-8 py-6 bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold"
           >
-            <Wallet className="w-5 h-5" />
-            Connect Wallet
+            <Link to={isAuthenticated ? "/wallet" : "/signin"}>
+              <Wallet className="w-5 h-5" />
+              {isAuthenticated ? "Go to Wallet" : "Connect Wallet"}
+            </Link>
           </Button>
         </div>
       </div>
