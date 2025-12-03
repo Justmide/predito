@@ -75,7 +75,10 @@ export const useMarketFiltering = ({
     }
 
     // Step 3: Apply subcategory filter
-    if (subcategory && subcategory !== "All") {
+    if (subcategory === "Live") {
+      // "Live" shows only markets ending within 7 days
+      filtered = filtered.filter(isLiveMarket);
+    } else if (subcategory && subcategory !== "All") {
       const subcategoryConfig = getSubcategoryConfig(category, subcategory);
       if (subcategoryConfig && subcategoryConfig.keywords.length > 0) {
         filtered = filtered.filter(market => matchesKeywords(market, subcategoryConfig.keywords));
