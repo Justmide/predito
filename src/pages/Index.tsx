@@ -6,11 +6,11 @@ import MarketGrid from "@/components/MarketGrid";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState("Trending");
-  const [activeSubcategory, setActiveSubcategory] = useState("All");
+  const [activeSubcategory, setActiveSubcategory] = useState("Live");
 
   const handleCategoryChange = (category: string) => {
     setActiveCategory(category);
-    setActiveSubcategory("All"); // Reset to "All" when category changes
+    setActiveSubcategory("Live"); // Reset to "Live" when category changes
   };
 
   const handleSubcategoryChange = (subcategory: string) => {
@@ -20,6 +20,9 @@ const Index = () => {
   // Build display title
   const getDisplayTitle = () => {
     if (activeCategory === "Trending") return "Trending Markets";
+    if (activeSubcategory === "Live") {
+      return `Live ${activeCategory} Markets`;
+    }
     if (activeSubcategory && activeSubcategory !== "All") {
       return `${activeSubcategory} Markets`;
     }

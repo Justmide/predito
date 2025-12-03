@@ -97,11 +97,11 @@ export const getCategoryNames = (): string[] => {
   return CATEGORIES.map(cat => cat.name);
 };
 
-// Get subcategories for a category (always includes "All" as first option)
+// Get subcategories for a category (always includes "Live" as first option)
 export const getSubcategories = (categoryName: string): string[] => {
   const category = CATEGORIES.find(cat => cat.name === categoryName);
   if (!category || category.subcategories.length === 0) return [];
-  return ["All", ...category.subcategories.map(sub => sub.name)];
+  return ["Live", ...category.subcategories.map(sub => sub.name)];
 };
 
 // Get category config by name

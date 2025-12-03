@@ -45,14 +45,19 @@ const MarketGrid = ({ category, subcategory, searchQuery = "" }: MarketGridProps
       <div className="text-center py-20">
         <p className="text-muted-foreground text-lg">
           {searchQuery 
-            ? `No markets found for "${searchQuery}" in ${subcategory && subcategory !== "All" ? subcategory : category}.`
-            : subcategory && subcategory !== "All"
-              ? `No ${subcategory} markets found in ${category}.` 
-              : `No markets found in ${category}.`
+            ? `No markets found for "${searchQuery}" in ${subcategory === "Live" ? `Live ${category}` : subcategory !== "All" ? subcategory : category}.`
+            : subcategory === "Live"
+              ? `No live markets currently ending soon in ${category}.`
+              : subcategory !== "All"
+                ? `No ${subcategory} markets found in ${category}.` 
+                : `No markets found in ${category}.`
           }
         </p>
         <p className="text-muted-foreground text-sm mt-2">
-          Try selecting a different category or subcategory.
+          {subcategory === "Live" 
+            ? "Live markets are those ending within 7 days. Try a different subcategory."
+            : "Try selecting a different category or subcategory."
+          }
         </p>
       </div>
     );
