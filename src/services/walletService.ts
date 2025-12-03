@@ -32,7 +32,16 @@ const handleResponse = async (response: Response) => {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
     throw new Error(error.message || 'Request failed');
   }
-  return response.json();
+  const json = await response.json();
+  // Handle wrapped responses like { status: 'success', data: [...] }
+  return json.data !== undefined ? json.data : json;
+};
+
+// Helper to ensure array response
+const ensureArray = (data: any): any[] => {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.data)) return data.data;
+  return [];
 };
 
 export const walletService = {
@@ -43,7 +52,13 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/balance`, { headers });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    // Return balance with defaults
+    return {
+      usdc: data?.usdc || '0.00',
+      usdt: data?.usdt || '0.00',
+      total: data?.total || '0.00',
+    };
   },
 
   async getDepositAddresses(token?: string): Promise<DepositAddress[]> {
@@ -53,7 +68,8 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/deposit-addresses`, { headers });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    return ensureArray(data);
   },
 
   async getUSDCAddress(token?: string): Promise<DepositAddress> {
@@ -83,7 +99,8 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/transactions`, { headers });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    return ensureArray(data);
   },
 
   async getTransaction(token: string, txId: string): Promise<Transaction> {
@@ -102,7 +119,8 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/deposits`, { headers });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    return ensureArray(data);
   },
 
   async getWithdrawals(token?: string): Promise<Transaction[]> {
@@ -112,6 +130,7 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/withdrawals`, { headers });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    return ensureArray(data);
   },
 };
