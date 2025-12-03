@@ -9,6 +9,23 @@ interface UseMarketFilteringProps {
   searchQuery?: string;
 }
 
+// Crypto-specific keywords - if a market matches these, it's a CRYPTO market
+const CRYPTO_IDENTIFIERS = [
+  "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "xrp", "ripple",
+  "crypto", "chainlink", "doge", "dogecoin", "altcoin", "defi", "nft",
+  "up or down", "updown", "coin", "token", "blockchain"
+];
+
+// Check if market is crypto-related
+const isCryptoMarket = (market: Market): boolean => {
+  const question = (market.question || "").toLowerCase();
+  const description = (market.description || "").toLowerCase();
+  const slug = (market.id || "").toLowerCase();
+  const searchText = `${question} ${description} ${slug}`;
+  
+  return CRYPTO_IDENTIFIERS.some(keyword => searchText.includes(keyword));
+};
+
 // Check if market matches any of the given keywords
 const matchesKeywords = (market: Market, keywords: string[]): boolean => {
   if (keywords.length === 0) return true;
@@ -69,6 +86,12 @@ export const useMarketFiltering = ({
       return sortByVolume(filtered).slice(0, 20);
     }
 
+    // STRICT FILTERING: Non-crypto categories must EXCLUDE crypto markets
+    if (category !== "Crypto") {
+      filtered = filtered.filter(market => !isCryptoMarket(market));
+    }
+
+    // Apply category keywords
     const categoryConfig = getCategoryConfig(category);
     if (categoryConfig && categoryConfig.keywords.length > 0) {
       filtered = filtered.filter(market => matchesKeywords(market, categoryConfig.keywords));
