@@ -22,6 +22,19 @@ export interface Transaction {
   txHash?: string;
 }
 
+// Helper to handle API responses
+const handleResponse = async (response: Response) => {
+  if (!response.ok) {
+    if (response.status === 401) {
+      const error = await response.json().catch(() => ({ message: 'Unauthorized' }));
+      throw new Error(error.message || 'Token expired');
+    }
+    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(error.message || 'Request failed');
+  }
+  return response.json();
+};
+
 export const walletService = {
   async getBalance(token?: string): Promise<Balance> {
     const headers: Record<string, string> = {};
@@ -30,12 +43,7 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/balance`, { headers });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch balance');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 
   async getDepositAddresses(token?: string): Promise<DepositAddress[]> {
@@ -45,12 +53,7 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/deposit-addresses`, { headers });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch deposit addresses');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 
   async getUSDCAddress(token?: string): Promise<DepositAddress> {
@@ -60,12 +63,7 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/deposit-addresses/usdc`, { headers });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch USDC address');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 
   async getUSDTAddress(token?: string): Promise<DepositAddress> {
@@ -75,12 +73,7 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/deposit-addresses/usdt`, { headers });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch USDT address');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 
   async getTransactions(token?: string): Promise<Transaction[]> {
@@ -90,12 +83,7 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/transactions`, { headers });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch transactions');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 
   async getTransaction(token: string, txId: string): Promise<Transaction> {
@@ -104,12 +92,7 @@ export const walletService = {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch transaction');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 
   async getDeposits(token?: string): Promise<Transaction[]> {
@@ -119,12 +102,7 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/deposits`, { headers });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch deposits');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 
   async getWithdrawals(token?: string): Promise<Transaction[]> {
@@ -134,11 +112,6 @@ export const walletService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/wallet/withdrawals`, { headers });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch withdrawals');
-    }
-    
-    return response.json();
+    return handleResponse(response);
   },
 };

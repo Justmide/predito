@@ -10,7 +10,7 @@ import { Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 const Wallet = () => {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [depositAddresses, setDepositAddresses] = useState<DepositAddress[]>([]);
@@ -18,7 +18,7 @@ const Wallet = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !token) {
       navigate("/signin");
       return;
     }
@@ -27,24 +27,31 @@ const Wallet = () => {
       try {
         setLoading(true);
         const [balanceData, addressesData, transactionsData] = await Promise.all([
-          walletService.getBalance(token || undefined),
-          walletService.getDepositAddresses(token || undefined),
-          walletService.getTransactions(token || undefined),
+          walletService.getBalance(token),
+          walletService.getDepositAddresses(token),
+          walletService.getTransactions(token),
         ]);
         
         setBalance(balanceData);
         setDepositAddresses(addressesData);
         setTransactions(transactionsData);
-      } catch (error) {
-        toast.error("Failed to load wallet data");
-        console.error(error);
+      } catch (error: any) {
+        console.error('Wallet fetch error:', error);
+        // Handle token expiration
+        if (error.message?.includes('Token expired') || error.message?.includes('401')) {
+          toast.error("Session expired. Please sign in again.");
+          logout();
+          navigate("/signin");
+        } else {
+          toast.error("Failed to load wallet data");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchWalletData();
-  }, [token, isAuthenticated, navigate]);
+  }, [token, isAuthenticated, navigate, logout]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -117,28 +124,32 @@ const Wallet = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {depositAddresses.map((addr) => (
-                    <div key={addr.currency} className="p-4 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-foreground">{addr.currency}</h3>
-                        <span className="text-sm text-muted-foreground">{addr.network}</span>
+                {depositAddresses.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No deposit addresses available</p>
+                ) : (
+                  <div className="space-y-4">
+                    {depositAddresses.map((addr) => (
+                      <div key={addr.currency} className="p-4 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold text-foreground">{addr.currency}</h3>
+                          <span className="text-sm text-muted-foreground">{addr.network}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 p-2 bg-muted rounded text-sm font-mono break-all">
+                            {addr.address}
+                          </code>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => copyToClipboard(addr.address)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 p-2 bg-muted rounded text-sm font-mono break-all">
-                          {addr.address}
-                        </code>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => copyToClipboard(addr.address)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
