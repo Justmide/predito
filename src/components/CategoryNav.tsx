@@ -1,23 +1,5 @@
 import { cn } from "@/lib/utils";
-
-const categories = [
-  "Trending",
-  "Sports",
-  "Politics", 
-  "Crypto",
-  "World Events",
-  "Entertainment",
-  "Business & Finance",
-];
-
-const subcategories: Record<string, string[]> = {
-  "Sports": ["Live", "Premier League", "Champions League", "La Liga", "NBA", "NFL", "Tennis", "Formula 1", "Boxing", "Cricket", "Golf"],
-  "Politics": ["Live", "US Presidential Election", "UK Politics", "Global Politics", "State Elections", "Policy Decisions", "Approval Ratings"],
-  "Crypto": ["Live", "Bitcoin", "Ethereum", "Altcoins", "DeFi", "NFTs", "Meme Coins", "Market Trends"],
-  "World Events": ["Live", "Climate Change", "Conflicts & Wars", "Natural Disasters", "Space Exploration", "Health Pandemics"],
-  "Entertainment": ["Live", "Movies", "Music Awards", "Celebrity News", "TV Shows", "Gaming"],
-  "Business & Finance": ["Live", "Stock Market", "Tech Companies", "Startups", "Commodities", "Real Estate"],
-};
+import { getCategoryNames, getSubcategories } from "@/config/categoryConfig";
 
 interface CategoryNavProps {
   activeCategory: string;
@@ -26,12 +8,19 @@ interface CategoryNavProps {
   onSubcategoryChange: (subcategory: string) => void;
 }
 
-const CategoryNav = ({ activeCategory, activeSubcategory, onCategoryChange, onSubcategoryChange }: CategoryNavProps) => {
-  const currentSubcategories = subcategories[activeCategory] || [];
+const CategoryNav = ({ 
+  activeCategory, 
+  activeSubcategory, 
+  onCategoryChange, 
+  onSubcategoryChange 
+}: CategoryNavProps) => {
+  const categories = getCategoryNames();
+  const subcategories = getSubcategories(activeCategory);
   
   return (
     <div className="border-b border-border bg-background sticky top-[73px] z-40">
       <div className="max-w-7xl mx-auto px-6">
+        {/* Main Category Tabs */}
         <nav className="flex gap-1 overflow-x-auto scrollbar-hide">
           {categories.map((category) => (
             <button
@@ -52,9 +41,10 @@ const CategoryNav = ({ activeCategory, activeSubcategory, onCategoryChange, onSu
           ))}
         </nav>
         
-        {currentSubcategories.length > 0 && (
+        {/* Subcategory Tabs */}
+        {subcategories.length > 0 && (
           <nav className="flex gap-2 px-2 py-3 overflow-x-auto scrollbar-hide border-t border-border/50">
-            {currentSubcategories.map((subcategory) => (
+            {subcategories.map((subcategory) => (
               <button
                 key={subcategory}
                 onClick={() => onSubcategoryChange(subcategory)}
