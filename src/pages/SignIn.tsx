@@ -22,14 +22,11 @@ const SignIn = () => {
     try {
       const response = await authService.login(email, password);
       
-      console.log("Login response:", response);
-      
       // Handle different response structures
       const token = response.token || response.accessToken || response.data?.token;
       const user = response.user || response.data?.user || response.data;
       
       if (!token || !user) {
-        console.error("Invalid response structure:", response);
         throw new Error("Invalid response from server");
       }
       
@@ -37,8 +34,15 @@ const SignIn = () => {
       toast.success("Login successful!");
       navigate("/");
     } catch (error: any) {
-      console.error("Login error:", error);
-      toast.error(error.message || "Login failed. Please try again.");
+      const errorMessage = error.message?.toLowerCase() || "";
+      
+      // Check if error is about email verification
+      if (errorMessage.includes("verify") || errorMessage.includes("verified") || errorMessage.includes("verification")) {
+        toast.error("Please verify your email before signing in.");
+        navigate("/verify", { state: { email } });
+      } else {
+        toast.error(error.message || "Login failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
