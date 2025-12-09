@@ -1,3 +1,4 @@
+import { log } from 'console';
 import { API_BASE_URL } from '../lib/api';
 
 export interface Balance {
@@ -22,6 +23,7 @@ export interface Transaction {
   txHash?: string;
 }
 
+
 // Debug helper
 const debugLog = (endpoint: string, method: string, data?: any) => {
   console.log(`[Wallet API] ${method} ${endpoint}`, data || '');
@@ -30,22 +32,43 @@ const debugLog = (endpoint: string, method: string, data?: any) => {
 // Get token from localStorage
 const getAuthToken = (): string | null => {
   try {
-    // Try different possible localStorage keys
-    const token = localStorage.getItem('auth_token') || 
-                  localStorage.getItem('token') ||
-                  localStorage.getItem('accessToken') ||
-                  localStorage.getItem('jwtToken');
+    const token = localStorage.getItem('auth_token');
     
     if (token) {
-      console.log('[Wallet API] Found auth token in localStorage');
+      console.log('[Wallet API] Found auth_token in localStorage');
       return token;
     }
     
-    console.warn('[Wallet API] No auth token found in localStorage');
+    console.warn('[Wallet API] No auth_token found in localStorage');
     return null;
   } catch (error) {
     console.error('[Wallet API] Error accessing localStorage:', error);
     return null;
+  }
+};
+
+// Check if token is expired (basic JWT expiration check)
+const isTokenExpired = (token: string): boolean => {
+  try {
+    // JWT tokens are in format: header.payload.signature
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    
+    const decodedPayload = JSON.parse(atob(payload));
+    const expiryTime = decodedPayload.exp * 1000; // Convert to milliseconds
+    const currentTime = Date.now();
+    
+    // Check if token expired (with 60 second buffer)
+    const isExpired = currentTime >= (expiryTime - 60000);
+    
+    if (isExpired) {
+      console.log('[Wallet API] Token is expired or about to expire');
+    }
+    
+    return isExpired;
+  } catch (error) {
+    console.error('[Wallet API] Error checking token expiry:', error);
+    return false; // If we can't parse, don't assume it's expired
   }
 };
 
@@ -67,7 +90,13 @@ const getUserInfo = (): any | null => {
 
 // Helper to handle API responses
 const handleResponse = async (response: Response): Promise<any> => {
-  debugLog(response.url, 'Response', { status: response.status, ok: response.ok });
+  const url = new URL(response.url);
+  const endpoint = url.pathname;
+  debugLog(endpoint, 'Response', { 
+    status: response.status, 
+    ok: response.ok,
+    statusText: response.statusText 
+  });
   
   const contentType = response.headers.get('content-type');
   const isJson = contentType && contentType.includes('application/json');
@@ -79,6 +108,7 @@ const handleResponse = async (response: Response): Promise<any> => {
       if (isJson) {
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
+        console.error('[Wallet API] Error response:', errorData);
       } else {
         const text = await response.text();
         if (text) errorMessage = text;
@@ -87,12 +117,10 @@ const handleResponse = async (response: Response): Promise<any> => {
       // Ignore parsing errors, use default message
     }
     
+    // Only clear localStorage for 401 if token exists
     if (response.status === 401) {
-      // Clear invalid token
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      console.warn('[Wallet API] Token expired, cleared from localStorage');
-      throw new Error('Session expired. Please login again.');
+      console.warn('[Wallet API] 401 Unauthorized response');
+      throw new Error('UNAUTHORIZED_401'); // Special error code
     }
     
     throw new Error(errorMessage);
@@ -101,12 +129,12 @@ const handleResponse = async (response: Response): Promise<any> => {
   try {
     if (!isJson) {
       const text = await response.text();
-      debugLog(response.url, 'Non-JSON response', text);
+      debugLog(endpoint, 'Non-JSON response', text);
       return text;
     }
     
     const json = await response.json();
-    debugLog(response.url, 'Parsed JSON', json);
+    debugLog(endpoint, 'Parsed JSON', json);
     
     // Handle various response formats
     if (json.data !== undefined) {
@@ -135,11 +163,22 @@ const ensureArray = <T>(data: any): T[] => {
   return [];
 };
 
+// All endpoints should start with /api/v1/wallet
+const WALLET_BASE_PATH = '/wallet';
+
 export const walletService = {
   // Get current authentication status
   isAuthenticated(): boolean {
     const token = getAuthToken();
-    return !!token;
+    if (!token) return false;
+    
+    // Check if token is expired
+    if (isTokenExpired(token)) {
+      console.log('[Wallet API] Token is expired');
+      return false;
+    }
+    
+    return true;
   },
 
   // Get current user info
@@ -147,23 +186,60 @@ export const walletService = {
     return getUserInfo();
   },
 
-  // Logout (clear localStorage)
+  // Check if token is valid without making API call
+  checkTokenValidity(): { valid: boolean; reason?: string } {
+    const token = getAuthToken();
+    
+    if (!token) {
+      return { valid: false, reason: 'No token found' };
+    }
+    
+    if (isTokenExpired(token)) {
+      return { valid: false, reason: 'Token expired' };
+    }
+    
+    return { valid: true };
+  },
+
+  // Soft logout (only clears wallet data, not auth)
+  softLogout(): void {
+    console.log('[Wallet API] Soft logout - clearing wallet data only');
+    // Don't clear auth_token here, let AuthContext handle that
+  },
+
+  // Full logout (clears everything)
   logout(): void {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('accessToken');
-    console.log('[Wallet API] User logged out');
+    console.log('[Wallet API] Full logout - cleared all auth data');
   },
 
-  async getBalance(): Promise<Balance> {
+  async getBalance(suppressErrors = false): Promise<Balance> {
     const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/wallet/balance`;
-    debugLog(endpoint, 'GET Balance', { hasToken: !!token });
+    const endpoint = `${API_BASE_URL}${WALLET_BASE_PATH}/balance`;
+    
+    
+    console.log('[Wallet API] getBalance called', { 
+      hasToken: !!token,
+      endpoint,
+      suppressErrors 
+    });
     
     if (!token) {
       console.error('[Wallet API] No auth token available');
-      throw new Error('Authentication required. Please login.');
+      if (!suppressErrors) {
+        throw new Error('Authentication required. Please login.');
+      }
+      return this.getDefaultBalance();
+    }
+    
+    // Check token expiry before making request
+    if (isTokenExpired(token)) {
+      console.warn('[Wallet API] Token expired, skipping API call');
+      if (!suppressErrors) {
+        throw new Error('Token expired. Please login again.');
+      }
+      return this.getDefaultBalance();
     }
     
     const headers: HeadersInit = {
@@ -172,127 +248,183 @@ export const walletService = {
     };
     
     try {
+      console.log('[Wallet API] Making balance request to:', endpoint);
       const response = await fetch(endpoint, {
         headers,
         method: 'GET',
       });
       
+      console.log('[Wallet API] Balance response status:', response.status);
+      
       const data = await handleResponse(response);
+      console.log('[Wallet API] Balance data received:', data);
       
       // Handle different response formats
-      return {
+      const result = {
         usdc: data?.usdc?.toString() || 
               data?.usdcBalance?.toString() || 
-              data?.balances?.usdc?.toString() || 
+              data.balance.toString() || 
               '0.00',
         usdt: data?.usdt?.toString() || 
               data?.usdtBalance?.toString() || 
-              data?.balances?.usdt?.toString() || 
+              data?.balance?.usdt?.toString() || 
               '0.00',
         total: data?.total?.toString() || 
-               data?.totalBalance?.toString() || 
-               data?.total?.toString() || 
-               '0.00',
+               data.availableBalance?.toString() || 
+               (() => {
+                 const usdc = parseFloat(data?.usdc || data?.usdcBalance || data?.balance?.usdc || '0');
+                 const usdt = parseFloat(data?.usdt || data?.usdtBalance || data?.balance?.usdt || '0');
+                 return (usdc + usdt).toFixed(2);
+               })() || '0.00',
       };
-    } catch (error: any) {
-      console.error('[Wallet API] Error fetching balance:', error.message);
       
-      // Check if it's an auth error
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
+      console.log('[Wallet API] Processed balance:', result);
+      return result;
+      
+    } catch (error: any) {
+      console.error('[Wallet API] Error fetching balance:', error);
+      
+      // Handle 401 specifically
+      if (error.message === 'UNAUTHORIZED_401') {
+        console.warn('[Wallet API] 401 Unauthorized - token may be invalid');
+        if (!suppressErrors) {
+          throw new Error('UNAUTHORIZED_401'); // Let component handle logout
+        }
       }
       
-      // Return default balance for other errors
-      return {
-        usdc: '0.00',
-        usdt: '0.00',
-        total: '0.00',
-      };
-    }
-  },
-
-  async getDepositAddresses(): Promise<DepositAddress[]> {
-    const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/wallet/deposit-addresses`;
-    debugLog(endpoint, 'GET Deposit Addresses', { hasToken: !!token });
-    
-    if (!token) {
-      throw new Error('Authentication required. Please login.');
-    }
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-    
-    try {
-      const response = await fetch(endpoint, {
-        headers,
-        method: 'GET',
-      });
-      
-      const data = await handleResponse(response);
-      return ensureArray<DepositAddress>(data);
-    } catch (error: any) {
-      console.error('[Wallet API] Error fetching deposit addresses:', error.message);
-      
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
+      // Check if it's a network error
+      if (error.message.includes('Failed to fetch') || 
+          error.message.includes('NetworkError') ||
+          error.message.includes('CORS')) {
+        console.error('[Wallet API] Network error, returning default balance');
+        if (!suppressErrors) {
+          throw new Error('Network error. Please check your connection.');
+        }
       }
       
-      return [];
-    }
-  },
-
-  async getUSDCAddress(): Promise<DepositAddress> {
-    const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/api/v1/wallet/deposit-addresses/usdc`;
-    debugLog(endpoint, 'GET USDC Address', { hasToken: !!token });
-    
-    if (!token) {
-      throw new Error('Authentication required. Please login.');
-    }
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-    
-    try {
-      const response = await fetch(endpoint, {
-        headers,
-        method: 'GET',
-      });
-      
-      const data = await handleResponse(response);
-      
-      // Ensure the response matches DepositAddress interface
-      return {
-        currency: data?.currency || 'USDC',
-        address: data?.address || data?.depositAddress || '',
-        network: data?.network || data?.chain || 'Polygon',
-      };
-    } catch (error: any) {
-      console.error('[Wallet API] Error fetching USDC address:', error.message);
-      
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
+      // For other errors, return default balance if suppressing errors
+      if (suppressErrors) {
+        return this.getDefaultBalance();
       }
       
       throw error;
     }
   },
 
-  async getUSDTAddress(): Promise<DepositAddress> {
+  // Helper to get default balance
+    getDefaultBalance(): Balance {
+    return {
+      usdc: '0.00',
+      usdt: '0.00',
+      total: '0.00',
+    };
+  },
+
+  async getDepositAddresses(suppressErrors = false): Promise<DepositAddress[]> {
     const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/wallet/deposit-addresses/usdt`;
-    debugLog(endpoint, 'GET USDT Address', { hasToken: !!token });
+    const endpoint = `${API_BASE_URL}${WALLET_BASE_PATH}/deposit-addresses`;
     
     if (!token) {
-      throw new Error('Authentication required. Please login.');
+      if (!suppressErrors) {
+        throw new Error('Authentication required. Please login.');
+      }
+      return [];
+    }
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+    
+    try {
+      const response = await fetch(endpoint, {
+        headers,
+        method: 'GET',
+      });
+      
+      const data = await handleResponse(response);
+      
+      // If data is an object, transform it into an array of DepositAddress
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        return Object.entries(data)
+          .filter(([, details]) => typeof details === 'object' && details !== null) // Filter out non-object values like the 'note'
+          .map(([currency, details]: [string, any]) => ({
+            currency: currency.toUpperCase(),
+            address: details.address || details.depositAddress || '',
+            network: details.network || details.chain || 'Polygon',
+          }));
+      }
+      
+      return ensureArray<DepositAddress>(data);
+    } catch (error: any) {
+      console.error('[Wallet API] Error fetching deposit addresses:', error.message);
+      
+      if (error.message === 'UNAUTHORIZED_401' && !suppressErrors) {
+        throw new Error('UNAUTHORIZED_401');
+      }
+      
+      if (suppressErrors) {
+        return [];
+      }
+      
+      throw error;
+    }
+  },
+
+  async getUSDCAddress(suppressErrors = false): Promise<DepositAddress> {
+    const token = getAuthToken();
+    const endpoint = `${API_BASE_URL}${WALLET_BASE_PATH}/deposit-addresses/usdc`;
+    
+    if (!token) {
+      if (!suppressErrors) {
+        throw new Error('Authentication required. Please login.');
+      }
+      return this.getDefaultAddress('USDC');
+    }
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+    
+    try {
+      const response = await fetch(endpoint, {
+        headers,
+        method: 'GET',
+      });
+      
+      const data = await handleResponse(response);
+      console.log(data);
+      
+      return {
+        currency: data?.currency || 'USDC',
+        address: data.usdc?.address,     
+        network: data?.network || data?.chain || 'Polygon',
+      };
+    } catch (error: any) {
+      console.error('[Wallet API] Error fetching USDC address:', error.message);
+      
+      if (error.message === 'UNAUTHORIZED_401' && !suppressErrors) {
+        throw new Error('UNAUTHORIZED_401');
+      }
+      
+      if (suppressErrors) {
+        return this.getDefaultAddress('USDC');
+      }
+      
+      throw error;
+    }
+  },
+
+  async getUSDTAddress(suppressErrors = false): Promise<DepositAddress> {
+    const token = getAuthToken();
+    const endpoint = `${API_BASE_URL}${WALLET_BASE_PATH}/deposit-addresses/usdt`;
+    
+    if (!token) {
+      if (!suppressErrors) {
+        throw new Error('Authentication required. Please login.');
+      }
+      return this.getDefaultAddress('USDT');
     }
     
     const headers: HeadersInit = {
@@ -316,22 +448,36 @@ export const walletService = {
     } catch (error: any) {
       console.error('[Wallet API] Error fetching USDT address:', error.message);
       
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
+      if (error.message === 'UNAUTHORIZED_401' && !suppressErrors) {
+        throw new Error('UNAUTHORIZED_401');
+      }
+      
+      if (suppressErrors) {
+        return this.getDefaultAddress('USDT');
       }
       
       throw error;
     }
   },
 
-  async getTransactions(): Promise<Transaction[]> {
+  // Helper for default address
+  private getDefaultAddress(currency: string): DepositAddress {
+    return {
+      currency,
+      address: '',
+      network: 'Polygon',
+    };
+  },
+
+  async getTransactions(suppressErrors = false): Promise<Transaction[]> {
     const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/wallet/transactions`;
-    debugLog(endpoint, 'GET Transactions', { hasToken: !!token });
+    const endpoint = `${API_BASE_URL}${WALLET_BASE_PATH}/transactions`;
     
     if (!token) {
-      throw new Error('Authentication required. Please login.');
+      if (!suppressErrors) {
+        throw new Error('Authentication required. Please login.');
+      }
+      return [];
     }
     
     const headers: HeadersInit = {
@@ -350,139 +496,114 @@ export const walletService = {
     } catch (error: any) {
       console.error('[Wallet API] Error fetching transactions:', error.message);
       
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
+      if (error.message === 'UNAUTHORIZED_401' && !suppressErrors) {
+        throw new Error('UNAUTHORIZED_401');
       }
       
-      return [];
-    }
-  },
-
-  async getTransaction(txId: string): Promise<Transaction> {
-    const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/wallet/transactions/${txId}`;
-    debugLog(endpoint, 'GET Transaction', { hasToken: !!token });
-    
-    if (!token) {
-      throw new Error('Authentication required. Please login.');
-    }
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-    
-    try {
-      const response = await fetch(endpoint, {
-        headers,
-        method: 'GET',
-      });
-      
-      return await handleResponse(response);
-    } catch (error: any) {
-      console.error(`[Wallet API] Error fetching transaction ${txId}:`, error.message);
-      
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
+      if (suppressErrors) {
+        return [];
       }
       
       throw error;
     }
   },
 
-  async getDeposits(): Promise<Transaction[]> {
-    const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/wallet/deposits`;
-    debugLog(endpoint, 'GET Deposits', { hasToken: !!token });
-    
-    if (!token) {
-      throw new Error('Authentication required. Please login.');
-    }
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-    
-    try {
-      const response = await fetch(endpoint, {
-        headers,
-        method: 'GET',
-      });
-      
-      const data = await handleResponse(response);
-      return ensureArray<Transaction>(data);
-    } catch (error: any) {
-      console.error('[Wallet API] Error fetching deposits:', error.message);
-      
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
-      }
-      
-      return [];
-    }
-  },
-
-  async getWithdrawals(): Promise<Transaction[]> {
-    const token = getAuthToken();
-    const endpoint = `${API_BASE_URL}/wallet/withdrawals`;
-    debugLog(endpoint, 'GET Withdrawals', { hasToken: !!token });
-    
-    if (!token) {
-      throw new Error('Authentication required. Please login.');
-    }
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-    
-    try {
-      const response = await fetch(endpoint, {
-        headers,
-        method: 'GET',
-      });
-      
-      const data = await handleResponse(response);
-      return ensureArray<Transaction>(data);
-    } catch (error: any) {
-      console.error('[Wallet API] Error fetching withdrawals:', error.message);
-      
-      if (error.message.includes('expired') || error.message.includes('401')) {
-        this.logout();
-        throw new Error('Session expired. Please login again.');
-      }
-      
-      return [];
-    }
-  },
-
-  // Test the current token
-  async testAuth(): Promise<{ valid: boolean; user?: any; error?: string }> {
+  // Test the current token (with optional error suppression)
+  async testAuth(suppressErrors = false): Promise<{ 
+    valid: boolean; 
+    user?: any; 
+    error?: string;
+    balance?: Balance;
+  }> {
     const token = getAuthToken();
     const user = getUserInfo();
     
     if (!token) {
-      return { valid: false, error: 'No token found' };
+      return { 
+        valid: false, 
+        user,
+        error: 'No token found' 
+      };
+    }
+    
+    // Check token expiry first
+    if (isTokenExpired(token)) {
+      return { 
+        valid: false, 
+        user,
+        error: 'Token expired' 
+      };
     }
     
     try {
-      // Try to get balance as a test
-      const balance = await this.getBalance();
+      // Try to get balance as a test (with error suppression)
+      const balance = await this.getBalance(true); // suppressErrors = true
       return {
         valid: true,
         user,
         balance
       };
     } catch (error: any) {
+      console.log('[Wallet API] testAuth caught error:', error.message);
+      
+      // If we get 401 in testAuth, token is invalid
+      if (error.message === 'UNAUTHORIZED_401') {
+        return {
+          valid: false,
+          user,
+          error: 'Invalid token'
+        };
+      }
+      
+      // For network errors, token might still be valid
+      if (error.message.includes('Network error') || 
+          error.message.includes('Failed to fetch')) {
+        return {
+          valid: true, // Assume token is still valid
+          user,
+          error: 'Network issue'
+        };
+      }
+      
+      if (suppressErrors) {
+        return {
+          valid: false,
+          user,
+          error: error.message
+        };
+      }
+      
       return {
         valid: false,
         user,
         error: error.message
       };
+    }
+  },
+
+  // Refresh token (if your backend supports it)
+  async refreshToken(): Promise<{ success: boolean; token?: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // For refresh token in cookies
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.token) {
+          localStorage.setItem('auth_token', data.token);
+          console.log('[Wallet API] Token refreshed successfully');
+          return { success: true, token: data.token };
+        }
+      }
+      return { success: false };
+    } catch (error) {
+      console.error('[Wallet API] Error refreshing token:', error);
+      return { success: false };
     }
   }
 };

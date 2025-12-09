@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       // Use the correct service function which returns a Balance object
-      const balanceData = await walletService.getBalance(storedToken); // This was correct
+      const balanceData = await walletService.getBalance();
       setBalance(parseFloat(balanceData.total || '0'));
     } catch (error) {
       console.error("Failed to refresh balance:", error);
