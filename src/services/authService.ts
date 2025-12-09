@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://predito-middleware.onrender.com/api/v1/auth';
+import { AUTH_API_BASE_URL as API_BASE_URL } from '../lib/api';
 
 export const authService = {
   async register(username: string, email: string, password: string) {

@@ -69,6 +69,7 @@ export const useMarketFiltering = ({
     }
 
     let filtered = [...markets];
+    console.log(`🔍 useMarketFiltering: start with ${filtered.length} markets, category=${category}, subcategory=${subcategory}`);
 
     // Step 1: Apply search query filter first (if present)
     if (searchQuery.trim()) {
@@ -78,6 +79,7 @@ export const useMarketFiltering = ({
         const description = (market.description || "").toLowerCase();
         return question.includes(query) || description.includes(query);
       });
+      console.log(`🔍 After search filter: ${filtered.length} markets`);
     }
 
     // Step 2: Apply category filter
@@ -86,30 +88,38 @@ export const useMarketFiltering = ({
       return sortByVolume(filtered).slice(0, 20);
     }
 
-    // STRICT FILTERING: Non-crypto categories must EXCLUDE crypto markets
-    if (category !== "Crypto") {
+    // NOTE: When a specific category is passed to the backend (via getMarkets()),
+    // the backend already filters by category. We should NOT apply additional
+    // keyword filtering here, as it may exclude valid markets that the backend
+    // already categorized correctly.
+    // Only apply keyword filtering if we're not using the backend category parameter
+    // (e.g., when showing local filtered results without backend category filtering)
+
+    // STRICT FILTERING: Only exclude crypto markets from specific non-crypto categories
+    // Don't exclude from Politics, World Events, Tech, or Business since they legitimately discuss crypto
+    const excludeCryptoFrom = ["Sports"];
+    if (excludeCryptoFrom.includes(category)) {
+      const beforeCryptoFilter = filtered.length;
       filtered = filtered.filter(market => !isCryptoMarket(market));
+      console.log(`🔍 After crypto filter: ${beforeCryptoFilter} -> ${filtered.length} markets (removed ${beforeCryptoFilter - filtered.length})`);
     }
 
-    // Apply category keywords
+    // Step 3: Apply subcategory filter (only if category has subcategories)
     const categoryConfig = getCategoryConfig(category);
-    if (categoryConfig && categoryConfig.keywords.length > 0) {
-      filtered = filtered.filter(market => matchesKeywords(market, categoryConfig.keywords));
-    }
-
-    // Step 3: Apply subcategory filter
-    if (subcategory === "Live") {
-      // "Live" shows only markets ending within 7 days
-      filtered = filtered.filter(isLiveMarket);
-    } else if (subcategory && subcategory !== "All") {
-      const subcategoryConfig = getSubcategoryConfig(category, subcategory);
-      if (subcategoryConfig && subcategoryConfig.keywords.length > 0) {
-        filtered = filtered.filter(market => matchesKeywords(market, subcategoryConfig.keywords));
+    if (categoryConfig && categoryConfig.subcategories.length > 0) {
+      if (subcategory && subcategory !== "All") {
+        const subcategoryConfig = getSubcategoryConfig(category, subcategory);
+        if (subcategoryConfig && subcategoryConfig.keywords.length > 0) {
+          filtered = filtered.filter(market => matchesKeywords(market, subcategoryConfig.keywords));
+          console.log(`🔍 After subcategory filter: ${filtered.length} markets`);
+        }
       }
     }
 
     // Step 4: Sort by volume and return
-    return sortByVolume(filtered);
+    const result = sortByVolume(filtered);
+    console.log(`🔍 useMarketFiltering: returning ${result.length} markets`);
+    return result;
   }, [markets, category, subcategory, searchQuery]);
 };
 

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://predito-middleware.onrender.com/api/v1';
+import { API_BASE_URL } from '../lib/api';
 
 export interface Order {
   marketId: string;

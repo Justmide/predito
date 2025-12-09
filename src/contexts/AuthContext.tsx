@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-
+import { walletService } from '@/services/walletService'; // Assuming you have a wallet service
+ 
 interface User {
   id: string;
   username: string;
@@ -8,11 +9,13 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  balance: number;
   token: string | null;
   login: (token: string, user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  refreshBalance: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +34,7 @@ const isTokenExpired = (token: string): boolean => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number>(0); 
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
@@ -38,6 +42,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('auth_user');
     setToken(null);
     setUser(null);
+    setBalance(0);
+  }, []);
+
+  const refreshBalance = useCallback(async () => {
+    const storedToken = localStorage.getItem('auth_token');
+    if (!storedToken || isTokenExpired(storedToken)) return;
+
+    try {
+      // Use the correct service function which returns a Balance object
+      const balanceData = await walletService.getBalance(storedToken); // This was correct
+      setBalance(parseFloat(balanceData.total || '0'));
+    } catch (error) {
+      console.error("Failed to refresh balance:", error);
+    }
   }, []);
 
   useEffect(() => {
@@ -54,6 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
+          refreshBalance(); // Fetch balance for the stored user
         } catch (error) {
           // Clear invalid data
           logout();
@@ -62,7 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     setIsLoading(false);
-  }, [logout]);
+  }, [logout, refreshBalance]);
 
   const login = (newToken: string, newUser: User) => {
     if (!newToken || !newUser) {
@@ -73,17 +92,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('auth_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    refreshBalance(); // Fetch balance on new login
   };
 
   return (
     <AuthContext.Provider 
       value={{ 
         user, 
+        balance,
         token, 
         login, 
         logout, 
-        isAuthenticated: !!token && !isTokenExpired(token),
-        isLoading 
+        isAuthenticated: !!token && !isTokenExpired(token), // This is correct
+        isLoading,
+        refreshBalance
       }}
     >
       {children}

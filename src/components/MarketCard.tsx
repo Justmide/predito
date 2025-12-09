@@ -1,132 +1,183 @@
-import { useNavigate } from "react-router-dom";
-import { Card } from "@/components/ui/card";
+// components/MarketCard.tsx
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Clock, TrendingUp, TrendingDown } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-
-interface Outcome {
-  price: string;
-  name: string;
-}
-
-interface Market {
-  id?: string;
-  question: string;
-  outcomes: Outcome[] | string;
-  volume: string;
-  end_date_iso?: string;
-  endDateIso?: string;
-  tags?: string[];
-}
+import { Clock, DollarSign, TrendingUp } from "lucide-react";
+import { Market } from "@/services/marketService";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface MarketCardProps {
   market: Market;
 }
 
 const MarketCard = ({ market }: MarketCardProps) => {
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    if (market.id) {
-      navigate(`/market/${market.id}`);
-    }
-  };
-
+  // Use slug for routing
+  const marketId = market.slug || market.id;
+  
   const formatVolume = (volume: string) => {
     const num = parseFloat(volume);
+    if (isNaN(num)) return "$0";
     if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `$${(num / 1000).toFixed(1)}K`;
     return `$${num.toFixed(0)}`;
   };
 
-  const formatPrice = (price: string) => {
-    return `${(parseFloat(price) * 100).toFixed(1)}%`;
+  const getTimeRemaining = (endDate?: string) => {
+    if (!endDate) return "N/A";
+    const end = new Date(endDate);
+    const now = new Date();
+    const diff = end.getTime() - now.getTime();
+    if (diff < 0) return "Ended";
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days > 0) return `${days}d`;
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours > 0) return `${hours}h`;
+
+    const minutes = Math.floor(diff / (1000 * 60));
+    return `${minutes}m`;
   };
 
-  const getTimeRemaining = (endDate: string) => {
-    try {
-      return formatDistanceToNow(new Date(endDate), { addSuffix: true });
-    } catch {
-      return "Date unavailable";
+  const outcomes = Array.isArray(market.outcomes) ? market.outcomes : [];
+
+  // Safely extract tag names
+  const renderTags = () => {
+    if (!market.tags || !Array.isArray(market.tags) || market.tags.length === 0) {
+      return null;
     }
+    
+    // Take only first tag and ensure it's a string
+    const firstTag = market.tags[0];
+    let tagText = '';
+    
+    if (typeof firstTag === 'string') {
+      tagText = firstTag;
+    } else if (typeof firstTag === 'object' && firstTag !== null) {
+      tagText = firstTag.label || firstTag.name || firstTag.slug || '';
+    } else {
+      tagText = String(firstTag);
+    }
+    
+    if (!tagText) return null;
+    
+    return (
+      <Badge variant="outline" className="w-fit mb-2 text-xs capitalize">
+        {tagText}
+      </Badge>
+    );
   };
 
-  // TODO: Connect to API for real-time price change data
-  // When API provides price history, calculate trend from historical data
-  const hasTrend = false; // TODO: Replace with actual trend calculation
-  const isPositive = false; // TODO: Replace with actual trend direction
+  // Find Yes/No outcomes
+  const yesOutcome = outcomes.find(o => 
+    o.name && o.name.toLowerCase().includes('yes')
+  );
+  const noOutcome = outcomes.find(o => 
+    o.name && o.name.toLowerCase().includes('no')
+  );
 
-  // Normalize outcomes - handle both string and array formats
-  let outcomesArray: Outcome[] = [];
-  if (typeof market.outcomes === 'string') {
-    try {
-      const parsed = JSON.parse(market.outcomes);
-      outcomesArray = parsed.map((name: string) => ({ name, price: "0.5" }));
-    } catch {
-      outcomesArray = [];
-    }
-  } else if (Array.isArray(market.outcomes)) {
-    outcomesArray = market.outcomes;
-  }
-
-  // Use endDateIso or end_date_iso
-  const endDate = market.endDateIso || market.end_date_iso || "";
+  const formatPercentage = (price: string) => {
+    const num = parseFloat(price);
+    if (isNaN(num)) return "0%";
+    return `${(num * 100).toFixed(0)}%`;
+  };
 
   return (
-    <Card 
-      onClick={handleClick}
-      className="p-5 hover:shadow-card-hover transition-all duration-300 cursor-pointer group bg-card border-border"
-    >
-      <div className="space-y-4">
-        {/* Tags */}
-        {market.tags && market.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {market.tags.slice(0, 2).map((tag, i) => (
-              <Badge key={i} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
+    <Link to={`/markets/${marketId}`} className="block">
+      <Card className="group relative h-full rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer overflow-hidden">
+        {/* Volume badge */}
+        <div className="absolute top-3 right-3 z-10">
+          <Badge variant="secondary" className="text-xs font-medium">
+            {formatVolume(market.volume)}
+          </Badge>
+        </div>
 
-        {/* Question */}
-        <h3 className="text-base font-semibold text-card-foreground line-clamp-3 group-hover:text-primary transition-colors">
-          {market.question}
-        </h3>
-
-        {/* Outcomes */}
-        <div className="space-y-2">
-          {outcomesArray.slice(0, 2).map((outcome, index) => (
-            <div key={index} className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">{outcome.name}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">
-                  {formatPrice(outcome.price)}
-                </span>
-                {hasTrend && index === 0 && (
-                  isPositive ? (
-                    <TrendingUp className="w-4 h-4 text-success" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4 text-destructive" />
-                  )
-                )}
-              </div>
+        <CardHeader className="p-4 pb-3">
+          {renderTags()}
+          <CardTitle className="text-sm font-semibold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+            {market.question || 'Untitled Market'}
+          </CardTitle>
+        </CardHeader>
+        
+        <CardContent className="p-4 pt-0 pb-3">
+          {outcomes.length > 0 ? (
+            <>
+              {yesOutcome && noOutcome ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-green-600">YES</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-green-600">
+                        {formatPercentage(yesOutcome.price)}
+                      </span>
+                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-green-500"
+                          style={{ width: `${Math.min(parseFloat(yesOutcome.price) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-red-600">NO</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-red-600">
+                        {formatPercentage(noOutcome.price)}
+                      </span>
+                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-red-500"
+                          style={{ width: `${Math.min(parseFloat(noOutcome.price) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {outcomes.slice(0, 2).map((outcome, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground truncate mr-2">
+                        {outcome.name || `Option ${idx + 1}`}
+                      </span>
+                      <span className="font-bold text-primary whitespace-nowrap">
+                        {formatPercentage(outcome.price)}
+                      </span>
+                    </div>
+                  ))}
+                  {outcomes.length > 2 && (
+                    <p className="text-xs text-muted-foreground text-center pt-1">
+                      + {outcomes.length - 2} more
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-2 text-sm text-muted-foreground">
+              No outcomes available
             </div>
-          ))}
-        </div>
-
-        {/* Footer Info */}
-        <div className="flex justify-between items-center pt-3 border-t border-border">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          )}
+        </CardContent>
+        
+        <CardFooter className="p-4 pt-3 flex justify-between items-center text-xs text-muted-foreground border-t">
+          <div className="flex items-center gap-1.5">
             <Clock className="w-3 h-3" />
-            <span>{getTimeRemaining(endDate)}</span>
+            <span className="font-medium">{getTimeRemaining(market.endDateIso)} left</span>
           </div>
-          <div className="text-xs font-medium text-muted-foreground">
-            Vol: {formatVolume(market.volume)}
+          <div className="flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />
+            <span className="text-xs">Trade</span>
           </div>
-        </div>
-      </div>
-    </Card>
+        </CardFooter>
+      </Card>
+    </Link>
   );
 };
 

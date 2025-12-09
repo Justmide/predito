@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 
 const Header = () => {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, balance } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -70,6 +70,10 @@ const Header = () => {
                 <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg">
                   <User className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm font-medium">{user?.username}</span>
+                  <div className="h-4 w-px bg-border mx-1" />
+                  <span className="text-sm font-bold text-primary">
+                    ${balance.toFixed(2)}
+                  </span>
                 </div>
                 <Button 
                   variant="ghost" 
@@ -121,6 +125,10 @@ const Header = () => {
                     <div className="flex items-center gap-3 px-2 py-3 mb-4 bg-muted rounded-lg">
                       <User className="w-5 h-5 text-muted-foreground" />
                       <span className="font-medium text-foreground">{user.username}</span>
+                      <div className="flex-grow" />
+                      <span className="font-bold text-primary text-sm">
+                        ${balance.toFixed(2)}
+                      </span>
                     </div>
                   )}
 

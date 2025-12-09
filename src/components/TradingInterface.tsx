@@ -1,24 +1,19 @@
+// components/TradingInterface.tsx
 import { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { tradingService } from "@/services/tradingService";
-import { toast } from "sonner";
-import { TrendingUp, TrendingDown } from "lucide-react";
-
-interface Outcome {
-  name: string;
-  price: string;
-}
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 
 interface TradingInterfaceProps {
   marketId: string;
   selectedOutcome: string;
-  outcomes: Outcome[];
+  outcomes: Array<{ name: string; price: string }>;
   onOutcomeChange: (outcome: string) => void;
+  orderType: 'yes' | 'no';
+  onOrderTypeChange: (type: 'yes' | 'no') => void;
 }
 
 const TradingInterface = ({ 
@@ -27,207 +22,253 @@ const TradingInterface = ({
   outcomes,
   onOutcomeChange 
 }: TradingInterfaceProps) => {
-  const { token } = useAuth();
-  const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
-  const [price, setPrice] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
+  const [orderPrice, setOrderPrice] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedOutcomeData = outcomes.find(o => o.name === selectedOutcome);
   const currentPrice = selectedOutcomeData ? parseFloat(selectedOutcomeData.price) : 0;
 
-  const calculateTotal = () => {
-    const amountNum = parseFloat(amount) || 0;
-    const priceNum = parseFloat(price) || currentPrice;
-    return (amountNum * priceNum).toFixed(2);
-  };
-
-  const calculatePotentialReturn = () => {
-    const amountNum = parseFloat(amount) || 0;
-    const priceNum = parseFloat(price) || currentPrice;
-    if (side === "buy") {
-      // Potential return if outcome wins
-      return (amountNum / priceNum).toFixed(2);
-    } else {
-      // Selling - return is the amount you get
-      return (amountNum * priceNum).toFixed(2);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!token) {
-      toast.error("Please sign in to trade");
+  const handleSubmit = async () => {
+    if (!amount || !orderPrice) {
+      alert("Please fill in all fields");
       return;
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    if (!price || parseFloat(price) <= 0 || parseFloat(price) > 1) {
-      toast.error("Price must be between 0 and 1");
-      return;
-    }
-
+    setIsSubmitting(true);
     try {
-      setLoading(true);
-      
-      await tradingService.placeOrder(token, {
+      // Implement your trading logic here
+      console.log({
         marketId,
         outcome: selectedOutcome,
-        side,
-        size: amount,
-        price,
+        type: orderType,
+        amount,
+        price: orderPrice
       });
-
-      toast.success(`${side === "buy" ? "Buy" : "Sell"} order placed successfully`);
       
       // Reset form
       setAmount("");
-      setPrice(currentPrice.toFixed(2));
-    } catch (error: any) {
-      toast.error(error.message || "Failed to place order");
-      console.error(error);
+      setOrderPrice("");
+    } catch (error) {
+      console.error("Trade failed:", error);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
+  const formatPercentage = (price: number) => {
+    return `${(price * 100).toFixed(1)}%`;
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-4">
       {/* Outcome Selector */}
-      <div className="space-y-2">
-        <Label htmlFor="outcome">Select Outcome</Label>
-        <Select value={selectedOutcome} onValueChange={onOutcomeChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Choose outcome" />
-          </SelectTrigger>
-          <SelectContent>
-            {outcomes.map((outcome, index) => (
-              <SelectItem key={index} value={outcome.name}>
-                <div className="flex items-center justify-between w-full">
-                  <span>{outcome.name}</span>
-                  <span className="ml-4 text-muted-foreground">
-                    ${parseFloat(outcome.price).toFixed(2)}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {outcomes.map((outcome) => {
+          const price = parseFloat(outcome.price);
+          const isSelected = selectedOutcome === outcome.name;
+          const isYes = outcome.name.toLowerCase().includes('yes');
+          
+          return (
+            <Button
+              key={outcome.name}
+              variant={isSelected ? "default" : "outline"}
+              className={`
+                flex-1 min-w-[80px] whitespace-nowrap
+                ${isYes && isSelected ? 'bg-green-600 hover:bg-green-700' : ''}
+                ${!isYes && isSelected ? 'bg-red-600 hover:bg-red-700' : ''}
+              `}
+              onClick={() => onOutcomeChange(outcome.name)}
+            >
+              <span className="text-xs font-medium">{outcome.name}</span>
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {formatPercentage(price)}
+              </Badge>
+            </Button>
+          );
+        })}
       </div>
 
       {/* Buy/Sell Tabs */}
-      <Tabs value={side} onValueChange={(v) => setSide(v as "buy" | "sell")} className="w-full">
+      <Tabs defaultValue="buy" onValueChange={(v) => setOrderType(v as 'buy' | 'sell')}>
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="buy" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-900">
+          <TabsTrigger value="buy" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
             <TrendingUp className="w-4 h-4 mr-2" />
             Buy
           </TabsTrigger>
-          <TabsTrigger value="sell" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-900">
+          <TabsTrigger value="sell" className="data-[state=active]:bg-red-500 data-[state=active]:text-white">
             <TrendingDown className="w-4 h-4 mr-2" />
             Sell
           </TabsTrigger>
         </TabsList>
-
+        
         <TabsContent value="buy" className="space-y-4 mt-4">
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800">
-              Buying {selectedOutcome} shares. You profit if this outcome occurs.
-            </p>
-          </div>
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              {/* Current Price Display */}
+              <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <p className="text-sm text-muted-foreground">Current Price</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatPercentage(currentPrice)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  ${currentPrice.toFixed(2)} per share
+                </p>
+              </div>
+
+              {/* Order Form */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    Amount ($)
+                  </label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    Limit Price (%)
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder={formatPercentage(currentPrice)}
+                    value={orderPrice}
+                    onChange={(e) => setOrderPrice(e.target.value)}
+                    className="text-right"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Current: {formatPercentage(currentPrice)}
+                  </p>
+                </div>
+
+                {/* Estimated Info */}
+                <div className="p-3 bg-muted rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Estimated Shares:</span>
+                    <span className="font-medium">
+                      {amount && orderPrice 
+                        ? `${(parseFloat(amount) / parseFloat(orderPrice)).toFixed(2)}` 
+                        : "0.00"
+                      }
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Max Cost:</span>
+                    <span className="font-medium">${amount || "0.00"}</span>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !amount || !orderPrice}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  size="lg"
+                >
+                  {isSubmitting ? "Placing Order..." : "Place Buy Order"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="sell" className="space-y-4 mt-4">
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800">
-              Selling {selectedOutcome} shares. You profit if this outcome does NOT occur.
-            </p>
-          </div>
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              {/* Current Price Display */}
+              <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <p className="text-sm text-muted-foreground">Current Price</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {formatPercentage(1 - currentPrice)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  ${(1 - currentPrice).toFixed(2)} per share
+                </p>
+              </div>
+
+              {/* Order Form (same as buy but with sell styling) */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    Shares to Sell
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    Limit Price (%)
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder={formatPercentage(1 - currentPrice)}
+                    value={orderPrice}
+                    onChange={(e) => setOrderPrice(e.target.value)}
+                    className="text-right"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Current: {formatPercentage(1 - currentPrice)}
+                  </p>
+                </div>
+
+                {/* Estimated Info */}
+                <div className="p-3 bg-muted rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Estimated Payout:</span>
+                    <span className="font-medium">
+                      {amount && orderPrice 
+                        ? `$${(parseFloat(amount) * parseFloat(orderPrice)).toFixed(2)}` 
+                        : "$0.00"
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !amount || !orderPrice}
+                  className="w-full bg-red-600 hover:bg-red-700"
+                  size="lg"
+                >
+                  {isSubmitting ? "Placing Order..." : "Place Sell Order"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Amount Input */}
-      <div className="space-y-2">
-        <Label htmlFor="amount">Amount (shares)</Label>
-        <Input
-          id="amount"
-          type="number"
-          step="1"
-          min="1"
-          placeholder="100"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
+      {/* Quick Amount Buttons */}
+      <div className="grid grid-cols-4 gap-2">
+        {[10, 25, 50, 100].map((value) => (
+          <Button
+            key={value}
+            variant="outline"
+            size="sm"
+            onClick={() => setAmount(value.toString())}
+            className="text-xs"
+          >
+            ${value}
+          </Button>
+        ))}
       </div>
-
-      {/* Price Input */}
-      <div className="space-y-2">
-        <Label htmlFor="price">Price per share</Label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            $
-          </span>
-          <Input
-            id="price"
-            type="number"
-            step="0.01"
-            min="0.01"
-            max="0.99"
-            placeholder={currentPrice.toFixed(2)}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="pl-7"
-            required
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Current market price: ${currentPrice.toFixed(2)}
-        </p>
-      </div>
-
-      {/* Order Summary */}
-      <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Total Cost</span>
-          <span className="font-semibold">${calculateTotal()}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">
-            {side === "buy" ? "Potential Return" : "You'll Receive"}
-          </span>
-          <span className="font-semibold text-primary">
-            ${calculatePotentialReturn()}
-          </span>
-        </div>
-        {side === "buy" && (
-          <div className="flex justify-between text-sm pt-2 border-t">
-            <span className="text-muted-foreground">Potential Profit</span>
-            <span className="font-semibold text-green-600">
-              ${(parseFloat(calculatePotentialReturn()) - parseFloat(calculateTotal())).toFixed(2)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Submit Button */}
-      <Button 
-        type="submit" 
-        className="w-full"
-        disabled={loading}
-        variant={side === "buy" ? "default" : "destructive"}
-      >
-        {loading ? "Processing..." : side === "buy" ? "Place Buy Order" : "Place Sell Order"}
-      </Button>
-
-      <p className="text-xs text-center text-muted-foreground">
-        Orders are subject to market availability and may be partially filled
-      </p>
-    </form>
+    </div>
   );
 };
 

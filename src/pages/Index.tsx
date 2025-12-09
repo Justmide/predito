@@ -3,14 +3,17 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import CategoryNav from "@/components/CategoryNav";
 import MarketGrid from "@/components/MarketGrid";
+import { getSubcategories } from "@/config/categoryConfig";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState("Trending");
-  const [activeSubcategory, setActiveSubcategory] = useState("Live");
+  const [activeSubcategory, setActiveSubcategory] = useState("");
 
   const handleCategoryChange = (category: string) => {
     setActiveCategory(category);
-    setActiveSubcategory("Live"); // Reset to "Live" when category changes
+    // Set subcategory to the first available subcategory, or empty string if none
+    const subs = getSubcategories(category);
+    setActiveSubcategory(subs.length > 0 ? subs[0] : "");
   };
 
   const handleSubcategoryChange = (subcategory: string) => {
@@ -20,10 +23,7 @@ const Index = () => {
   // Build display title
   const getDisplayTitle = () => {
     if (activeCategory === "Trending") return "Trending Markets";
-    if (activeSubcategory === "Live") {
-      return `Live ${activeCategory} Markets`;
-    }
-    if (activeSubcategory && activeSubcategory !== "All") {
+    if (activeSubcategory) {
       return `${activeSubcategory} Markets`;
     }
     return `${activeCategory} Markets`;
@@ -53,3 +53,4 @@ const Index = () => {
 };
 
 export default Index;
+

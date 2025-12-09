@@ -49,13 +49,7 @@ export const CATEGORIES: CategoryConfig[] = [
   {
     name: "Politics",
     keywords: ["election", "president", "government", "congress", "senate", "vote", "policy", "political", "democrat", "republican", "prime minister", "parliament", "trump", "biden", "governor", "mayor", "legislation", "bill", "referendum"],
-    subcategories: [
-      { name: "US Elections", keywords: ["us election", "presidential", "biden", "trump", "white house", "2024 election", "2025", "congress", "senate race", "house race"] },
-      { name: "UK Politics", keywords: ["uk", "britain", "british", "sunak", "starmer", "labour", "conservative", "parliament", "brexit"] },
-      { name: "Global Politics", keywords: ["global", "international", "summit", "g7", "g20", "un", "nato", "eu", "european union"] },
-      { name: "Policy", keywords: ["policy", "bill", "legislation", "law", "regulation", "reform", "tax"] },
-      { name: "Polls & Ratings", keywords: ["approval", "rating", "poll", "popularity", "favorability"] },
-    ],
+    subcategories: [],
   },
   {
     name: "World Events",
@@ -69,14 +63,14 @@ export const CATEGORIES: CategoryConfig[] = [
     ],
   },
   {
-    name: "Entertainment",
-    keywords: ["movie", "film", "music", "celebrity", "award", "oscar", "grammy", "show", "series", "netflix", "streaming", "actor", "actress", "gaming", "game", "esports", "youtube", "tiktok", "influencer"],
+    name: "Tech",
+    keywords: ["tech", "technology", "ai", "artificial intelligence", "crypto", "blockchain", "software", "hardware", "startup", "innovation", "app", "mobile", "web", "cloud", "data", "cybersecurity", "silicon valley", "apple", "google", "microsoft", "amazon", "meta", "tesla", "nvidia"],
     subcategories: [
-      { name: "Movies", keywords: ["movie", "film", "box office", "oscar", "academy award", "cinema", "hollywood"] },
-      { name: "Music", keywords: ["grammy", "music award", "billboard", "album", "artist", "concert", "tour", "spotify"] },
-      { name: "TV Shows", keywords: ["tv", "series", "netflix", "hbo", "streaming", "season", "disney+", "amazon prime", "show"] },
-      { name: "Gaming", keywords: ["game", "gaming", "esports", "playstation", "xbox", "nintendo", "steam", "twitch"] },
-      { name: "Celebrity", keywords: ["celebrity", "star", "scandal", "influencer", "youtube", "tiktok", "social media"] },
+      { name: "AI & Machine Learning", keywords: ["ai", "artificial intelligence", "machine learning", "deep learning", "gpt", "chatgpt", "openai", "neural network", "algorithm"] },
+      { name: "Crypto & Blockchain", keywords: ["crypto", "cryptocurrency", "blockchain", "bitcoin", "ethereum", "defi", "nft", "token", "web3", "metaverse"] },
+      { name: "Big Tech Companies", keywords: ["apple", "google", "microsoft", "amazon", "meta", "tesla", "nvidia", "oracle", "ibm", "adobe"] },
+      { name: "Startups & Innovation", keywords: ["startup", "unicorn", "venture", "vc", "funding", "ipo", "innovation", "disrupt"] },
+      { name: "Software & Apps", keywords: ["software", "app", "saas", "mobile app", "web app", "programming", "developer", "code"] },
     ],
   },
   {
@@ -97,11 +91,11 @@ export const getCategoryNames = (): string[] => {
   return CATEGORIES.map(cat => cat.name);
 };
 
-// Get subcategories for a category (always includes "Live" as first option)
+// Get subcategories for a category
 export const getSubcategories = (categoryName: string): string[] => {
   const category = CATEGORIES.find(cat => cat.name === categoryName);
   if (!category || category.subcategories.length === 0) return [];
-  return ["Live", ...category.subcategories.map(sub => sub.name)];
+  return category.subcategories.map(sub => sub.name);
 };
 
 // Get category config by name
