@@ -461,7 +461,7 @@ export const walletService = {
   },
 
   // Helper for default address
-  private getDefaultAddress(currency: string): DepositAddress {
+   getDefaultAddress(currency: string): DepositAddress {
     return {
       currency,
       address: '',
