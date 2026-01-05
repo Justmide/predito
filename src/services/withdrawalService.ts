@@ -3,7 +3,7 @@ import { API_BASE_URL } from '../lib/api';
 export interface WithdrawalRequest {
   currency: string;
   amount: string;
-  destinationAddress: string;
+  withdrawalAddress: string;
 }
 
 export interface WithdrawalStatus {
@@ -11,7 +11,7 @@ export interface WithdrawalStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   currency: string;
   amount: string;
-  destinationAddress: string;
+  withdrawalAddress: string;
   txHash?: string;
   createdAt: string;
   updatedAt: string;
@@ -19,7 +19,7 @@ export interface WithdrawalStatus {
 
 export const withdrawalService = {
   async initiateWithdrawal(token: string, withdrawal: WithdrawalRequest) {
-    const response = await fetch(`${API_BASE_URL}/withdrawal/initiate`, {
+    const response = await fetch(`${API_BASE_URL}/withdraw/initiate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,7 +37,7 @@ export const withdrawalService = {
   },
 
   async getWithdrawalStatus(token: string, withdrawalId: string): Promise<WithdrawalStatus> {
-    const response = await fetch(`${API_BASE_URL}/withdrawal/status/${withdrawalId}`, {
+    const response = await fetch(`${API_BASE_URL}/withdraw/status/${withdrawalId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

@@ -32,6 +32,17 @@ export interface Orderbook {
   spread?: number;
 }
 
+export interface UserOrder {
+  id: string;
+  marketId: string;
+  side: 'buy' | 'sell';
+  amount: number;
+  price: number;
+  outcome: string;
+  status: 'open' | 'filled' | 'canceled';
+  createdAt: string;
+}
+
 export interface MarketsResponse {
   data: Market[] | CategoryGroup;
   pagination?: {
@@ -116,10 +127,9 @@ export const marketService = {
 
   async getMarket(marketId: string): Promise<Market> {
     try {
-      // Clean the marketId (remove any URL encoding issues)
+      // CRITICAL: Use the marketId exactly as provided (it should be the full slug in most cases)
       const cleanMarketId = marketId.trim();
       
-      // First try direct fetch by slug/id
       console.log(`📡 getMarket: attempting to fetch market: ${cleanMarketId}`);
       
       // Try multiple possible endpoints
@@ -136,11 +146,15 @@ export const marketService = {
           if (response.ok) {
             const json = await response.json();
             const marketData = json.data || json;
-            console.log(`✅ Found market via direct fetch`);
+            console.log(`✅ Found market via direct fetch:`, {
+              id: marketData.id,
+              slug: marketData.slug,
+              ticker: marketData.ticker
+            });
             return this.normalizeMarket(marketData);
           }
         } catch (err) {
-          console.log(`⚠️ Endpoint failed: ${endpoint}`, err);
+          // Suppress error log for failed endpoint to keep console clean
         }
       }
       
@@ -148,39 +162,25 @@ export const marketService = {
       console.log(`🔄 Falling back to search in all markets`);
       const allMarkets = await this.getMarkets(undefined, false) as Market[];
       
-      // Create a slug from the marketId
-      const makeSlug = (s: string) =>
-        String(s)
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
-      
-      const marketIdSlug = makeSlug(cleanMarketId);
-      
-      // Try multiple matching strategies
+      // Try multiple matching strategies WITHOUT modifying the slug
       const foundMarket = allMarkets.find(m => {
         if (!m) return false;
         
-        // Exact ID match
-        if (m.id === cleanMarketId) return true;
-        
-        // Exact slug match
-        if (m.slug === cleanMarketId) return true;
-        
-        // Check if any slug matches
-        if (m.slug && makeSlug(m.slug) === marketIdSlug) return true;
-        
-        // Check if question slug matches
-        if (m.question && makeSlug(m.question) === marketIdSlug) return true;
-        
-        // Check if title slug matches
-        if (m.title && makeSlug(m.title) === marketIdSlug) return true;
+        // Prioritize the full slug/ticker match
+        if (m.slug === cleanMarketId) return true; 
+        if (m.ticker === cleanMarketId) return true;
+        if (m.id === cleanMarketId) return true; // Numeric match
         
         return false;
       });
       
       if (foundMarket) {
-        console.log(`✅ Found market in list: ${foundMarket.question}`);
+        console.log(`✅ Found market in list:`, {
+          id: foundMarket.id,
+          slug: foundMarket.slug,
+          ticker: foundMarket.ticker,
+          question: foundMarket.question
+        });
         return foundMarket;
       }
       
@@ -208,99 +208,57 @@ export const marketService = {
     }
   },
 
-  async getOrderbook(marketId: string): Promise<Orderbook> {
-    try {
-      console.log(`📡 getOrderbook: Starting for marketId="${marketId}"`);
-      
-      // First, clean the marketId
-      const cleanMarketId = marketId.trim();
-      
-      // Try direct orderbook fetch first
-      try {
-        const url = `${API_BASE_URL}/trading/markets/${encodeURIComponent(cleanMarketId)}/orderbook`;
-        console.log(`🔄 Trying direct orderbook fetch: ${url}`);
-        
-        const response = await fetch(url);
-        
-        if (response.ok) {
-          const json = await response.json();
-          console.log(`✅ Orderbook fetched successfully via direct fetch`);
-          
-          // If the API returns an error status in the JSON
-          if (json.status === 'error') {
-            throw new Error(json.message || 'Orderbook fetch failed');
-          }
-          
-          return this.normalizeOrderbook(json.data || json);
-        } else {
-          console.log(`⚠️ Direct orderbook fetch failed with status: ${response.status}`);
-        }
-      } catch (directError) {
-        console.log(`⚠️ Direct orderbook fetch error:`, directError);
-      }
-      
-      // If direct fetch fails, get market details first
-      console.log(`🔄 Falling back to market resolution for orderbook`);
-      const market = await this.getMarket(cleanMarketId);
-      
-      if (!market) {
-        throw new Error(`Market not found: ${cleanMarketId}`);
-      }
-      
-      // Try with the resolved market slug/ID
-      const resolvedId = market.slug || market.id || cleanMarketId;
-      console.log(`🔄 Trying orderbook with resolved ID: ${resolvedId}`);
-      
-      const url = `${API_BASE_URL}/trading/markets/${encodeURIComponent(resolvedId)}/orderbook`;
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Final orderbook fetch failed:`, {
-          status: response.status,
-          error: errorText,
-          url,
-          market: {
-            id: market.id,
-            slug: market.slug,
-            question: market.question
-          }
-        });
-        
-        // Return empty orderbook instead of throwing error
-        console.log(`⚠️ Returning empty orderbook due to fetch failure`);
-        return { bids: [], asks: [] };
-      }
-      
-      const json = await response.json();
-      
-      if (json.status === 'error') {
-        console.warn(`⚠️ Orderbook API returned error:`, json.message);
-        return { bids: [], asks: [] };
-      }
-      
-      console.log(`✅ Orderbook fetched successfully after market resolution`);
-      return this.normalizeOrderbook(json.data || json);
-      
-    } catch (error) {
-      console.error('❌ getOrderbook error:', error);
-      // Instead of throwing, return empty orderbook
-      console.log(`⚠️ Returning empty orderbook due to error`);
-      return { bids: [], asks: [] };
-    }
-  },
+async getOrderbook(
+  marketSlug: string,
+  outcome: string = "Yes"
+): Promise<Orderbook> {
+  try {
+    const cleanSlug = marketSlug.trim();
 
-  // Helper to normalize orderbook data
+    // 🚨 HARD GUARD — orderbooks NEVER accept numeric IDs
+    if (/^\d+$/.test(cleanSlug)) {
+      throw new Error(
+        `Invalid market slug "${cleanSlug}". Orderbooks require a slug, not an ID.`
+      );
+    }
+
+    console.log(
+      `📡 getOrderbook → slug="${cleanSlug}", outcome="${outcome}"`
+    );
+
+    const url = `${API_BASE_URL}/trading/markets/${encodeURIComponent(
+      cleanSlug
+    )}/orderbook?outcome=${encodeURIComponent(outcome)}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Orderbook fetch failed (${response.status}): ${text}`
+      );
+    }
+
+    const json = await response.json();
+
+    if (json.status === "error") {
+      throw new Error(json.message || "Orderbook error");
+    }
+
+    return this.normalizeOrderbook(json.data);
+  } catch (err) {
+    console.error("❌ getOrderbook error:", err);
+    return { bids: [], asks: [] };
+  }
+},
   normalizeOrderbook(data: any): Orderbook {
     console.log("🔄 Normalizing orderbook data:", data);
     
-    // Handle different response formats
     let bids: OrderbookEntry[] = [];
     let asks: OrderbookEntry[] = [];
     
     if (data) {
       if (Array.isArray(data.bids) && Array.isArray(data.asks)) {
-        // Standard format
         bids = data.bids.map((entry: any) => ({
           price: String(entry.price || entry[0] || "0"),
           size: String(entry.size || entry.amount || entry[1] || "0")
@@ -311,7 +269,6 @@ export const marketService = {
           size: String(entry.size || entry.amount || entry[1] || "0")
         }));
       } else if (data.buy && data.sell) {
-        // Alternative format
         bids = (data.buy || []).map((entry: any) => ({
           price: String(entry.price || "0"),
           size: String(entry.size || "0")
@@ -324,11 +281,9 @@ export const marketService = {
       }
     }
     
-    // Sort bids descending, asks ascending
     bids.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
     asks.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
     
-    // Calculate spread if we have both bids and asks
     let spread: number | undefined;
     if (bids.length > 0 && asks.length > 0) {
       const bestBid = parseFloat(bids[0].price);
@@ -337,7 +292,7 @@ export const marketService = {
     }
     
     return {
-      bids: bids.slice(0, 20), // Limit to top 20
+      bids: bids.slice(0, 20),
       asks: asks.slice(0, 20),
       spread
     };
@@ -347,10 +302,8 @@ export const marketService = {
     try {
       console.log(`📡 Placing order:`, params);
       
-      // Get market details to ensure we have correct ID
       const market = await this.getMarket(params.marketId);
       
-      // Get auth token for protected route
       const token = localStorage.getItem('auth_token');
       if (!token) {
         throw new Error("User is not authenticated");
@@ -382,8 +335,105 @@ export const marketService = {
     }
   },
 
+  async cancelOrder(orderId: string): Promise<any> {
+    try {
+      console.log(`📡 Cancelling order: ${orderId}`);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error("User is not authenticated");
+      }
+      
+      const url = `${API_BASE_URL}/trading/orders/${encodeURIComponent(orderId)}`;
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Cancel order error ${response.status}:`, errorText);
+        throw new Error(`Failed to cancel order: ${response.status} ${response.statusText}`);
+      }
+      
+      const responseText = await response.text();
+      let json;
+      try {
+        json = JSON.parse(responseText);
+      } catch (e) {
+        return { status: 'success', message: `Order ${orderId} cancelled.` };
+      }
+      
+      return json.data || json;
+      
+    } catch (error) {
+      console.error('❌ cancelOrder error:', error);
+      throw error;
+    }
+  },
+  
+  async getUserOrders(): Promise<UserOrder[]> {
+    try {
+      console.log(`📡 Fetching user orders...`);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.warn("User is not authenticated. Cannot fetch orders.");
+        return [];
+      }
+
+      const url = `${API_BASE_URL}/trading/orders/me`; 
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Get user orders error ${response.status}:`, errorText);
+        throw new Error(`Failed to fetch user orders: ${response.status} ${response.statusText}`);
+      }
+      
+      const json = await response.json();
+      
+      if (json.status === 'error') {
+        throw new Error(json.message || 'API returned unsuccessful status for user orders');
+      }
+
+      const orders: UserOrder[] = json.data || [];
+      console.log(`✅ Received ${orders.length} user orders.`);
+
+      return orders.map(order => ({
+        id: order.id,
+        marketId: order.marketId,
+        side: order.side,
+        amount: Number(order.amount),
+        price: Number(order.price),
+        outcome: order.outcome,
+        status: order.status,
+        createdAt: order.createdAt,
+      }));
+
+    } catch (error) {
+      console.error('❌ getUserOrders error:', error);
+      return [];
+    }
+  },
+
   normalizeMarket(market: any): Market {
-    // Extract tags safely
+    console.log('🔄 Normalizing market:', {
+      raw_id: market.id,
+      raw_slug: market.slug,
+      raw_ticker: market.ticker,
+      raw_question: market.question
+    });
+
     let tags: string[] = [];
     if (market.tags) {
       if (Array.isArray(market.tags)) {
@@ -399,7 +449,6 @@ export const marketService = {
       }
     }
     
-    // Extract category safely
     let category = '';
     if (market.category) {
       if (typeof market.category === 'string') {
@@ -409,14 +458,14 @@ export const marketService = {
       }
     }
     
-    // Extract outcomes
     const outcomes = this.normalizeOutcomes(market.outcomes || market.options);
     
-    // Ensure we have a valid ID and slug
+    // CRITICAL FIX: Preserve the full slug/ticker from backend and ONLY create a new slug 
+    // if neither slug nor ticker is provided by the API response.
     let id = market.id || market._id || '';
     let slug = market.slug || market.ticker || '';
     
-    // If no slug, create one from the question
+    // If no unique identifier is available, create a basic slug (LAST RESORT)
     if (!slug && market.question) {
       slug = market.question
         .toLowerCase()
@@ -424,14 +473,8 @@ export const marketService = {
         .replace(/^-+|-+$/g, "");
     }
     
-    // If no ID but we have a slug, use slug as ID
-    if (!id && slug) {
-      id = slug;
-    }
-    
-    // If still no ID, generate one
     if (!id) {
-      id = `market-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      id = slug || `market-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     }
     
     const normalized: Market = {
@@ -444,10 +487,16 @@ export const marketService = {
       tags,
       description: market.description || market.details || '',
       image: market.image || market.imageUrl || market.thumbnail,
-      slug,
+      slug, // Keep the full slug intact!
       ticker: market.ticker,
       title: market.title,
     };
+
+    console.log('✅ Normalized market:', {
+      final_id: normalized.id,
+      final_slug: normalized.slug,
+      final_ticker: normalized.ticker
+    });
     
     return normalized;
   },
@@ -460,7 +509,6 @@ export const marketService = {
       ];
     }
     
-    // Try to parse JSON string
     if (typeof outcomes === 'string') {
       try {
         const parsed = JSON.parse(outcomes);
@@ -480,7 +528,6 @@ export const marketService = {
       
       const firstItem = outcomes[0];
       
-      // Array of objects
       if (typeof firstItem === 'object' && firstItem !== null) {
         return outcomes.map((item: any) => ({
           name: item.name || item.title || item.label || 'Unknown',
@@ -488,7 +535,6 @@ export const marketService = {
         }));
       }
       
-      // Array of strings
       if (typeof firstItem === 'string') {
         return outcomes.map((name: string) => ({
           name,
@@ -497,7 +543,6 @@ export const marketService = {
       }
     }
     
-    // Object format
     if (typeof outcomes === 'object' && outcomes !== null && !Array.isArray(outcomes)) {
       const result: Array<{ name: string; price: string }> = [];
       
@@ -514,7 +559,6 @@ export const marketService = {
       if (result.length > 0) return result;
     }
     
-    // Fallback
     return [
       { name: "YES", price: "0.5" },
       { name: "NO", price: "0.5" }

@@ -27,118 +27,68 @@ const Wallet = () => {
       navigate("/signin");
       return;
     }
-
     fetchWalletData();
   }, [isAuthenticated, navigate]);
 
-  
   const fetchWalletData = async () => {
     try {
       setLoading(true);
       setError(null);
       setShowDefaultData(false);
       
-      console.log('[Wallet] Starting data fetch...');
-      
-      // Check token validity first (local check without API call)
       const tokenCheck = walletService.checkTokenValidity();
-      console.log('[Wallet] Token check:', tokenCheck);
-      
       if (!tokenCheck.valid) {
-        console.log('[Wallet] Token invalid:', tokenCheck.reason);
         toast.error("Session expired. Please sign in again.");
         logout();
         navigate("/signin");
         return;
       }
 
-      // Test auth with error suppression
-      console.log('[Wallet] Testing auth...');
-      const authTest = await walletService.testAuth(true); // suppressErrors = true
-      console.log('[Wallet] Auth test result:', authTest);
-      
+      const authTest = await walletService.testAuth(true);
       if (!authTest.valid) {
-        // Check the specific error
         if (authTest.error === 'Invalid token' || authTest.error === 'Token expired') {
-          console.log('[Wallet] Invalid/expired token, logging out');
           toast.error("Session expired. Please sign in again.");
           logout();
           navigate("/signin");
           return;
         } else if (authTest.error === 'Network issue') {
-          // Network error but token might still be valid
-          console.log('[Wallet] Network issue detected');
           setError("Having trouble connecting to server. Showing cached or default data.");
           setShowDefaultData(true);
         } else {
-          // Other errors
-          console.log('[Wallet] Other auth error:', authTest.error);
           setError(authTest.error || "Authentication check failed");
         }
       }
 
-      // Fetch data with error suppression
-      console.log('[Wallet] Fetching data...');
       const [balanceData, addressesData, transactionsData] = await Promise.allSettled([
-        walletService.getBalance(true), // suppressErrors = true
+        walletService.getBalance(true),
         walletService.getDepositAddresses(true),
         walletService.getTransactions(true),
       ]);
-      
-      console.log('[Wallet] Fetch results:', {
-        balance: balanceData,
-        addresses: addressesData,
-        transactions: transactionsData
-      });
 
-      // Handle balance
-      if (balanceData.status === 'fulfilled') {
-        setBalance(balanceData.value);
-        console.log('[Wallet] Balance set:', balanceData.value);
-      } else {
-        console.error('[Wallet] Balance fetch failed:', balanceData.reason);
-        setBalance(walletService.getDefaultBalance());
-      }
+      if (balanceData.status === 'fulfilled') setBalance(balanceData.value);
+      else setBalance(walletService.getDefaultBalance());
 
-      // Handle addresses
-      if (addressesData.status === 'fulfilled') {
-        setDepositAddresses(addressesData.value);
-      } else {
-        console.error('[Wallet] Addresses fetch failed:', addressesData.reason);
-        setDepositAddresses([]);
-      }
+      if (addressesData.status === 'fulfilled') setDepositAddresses(addressesData.value);
+      else setDepositAddresses([]);
 
-      // Handle transactions
-      if (transactionsData.status === 'fulfilled') {
-        setTransactions(transactionsData.value);
-      } else {
-        console.error('[Wallet] Transactions fetch failed:', transactionsData.reason);
-        setTransactions([]);
-      }
+      if (transactionsData.status === 'fulfilled') setTransactions(transactionsData.value);
+      else setTransactions([]);
 
-      // Check if we got any real data
       const hasRealData = 
         (balanceData.status === 'fulfilled' && balanceData.value.total !== '0.00') ||
         (addressesData.status === 'fulfilled' && addressesData.value.length > 0) ||
         (transactionsData.status === 'fulfilled' && transactionsData.value.length > 0);
 
-      if (hasRealData) {
-        toast.success("Wallet data loaded");
-      } else if (!error) {
-        setError("No wallet data available. Make a deposit to get started.");
-      }
+      if (hasRealData) toast.success("Wallet data loaded");
+      else if (!error) setError("No wallet data available. Make a deposit to get started.");
       
     } catch (error: any) {
-      console.error('[Wallet] Unexpected error in fetchWalletData:', error);
-      
-      // Only handle critical errors that require logout
       if (error.message === 'UNAUTHORIZED_401') {
         toast.error("Session expired. Please sign in again.");
         logout();
         navigate("/signin");
       } else {
         setError(error.message || "An unexpected error occurred");
-        // Show default data as fallback
         setBalance(walletService.getDefaultBalance());
         setDepositAddresses([]);
         setTransactions([]);
@@ -165,33 +115,63 @@ const Wallet = () => {
     toast.success("Copied to clipboard!");
   };
 
+  const normalizeStatus = (status: string): string => {
+    if (!status) return 'Unknown';
+    const statusMap: Record<string, string> = {
+      'PENDING': 'Pending',
+      'CONFIRMED': 'Confirmed',
+      'COMPLETED': 'Completed',
+      'COMPLETE': 'Completed',
+      'FAILED': 'Failed',
+      'SWAP_FAILED': 'Swap Failed',
+      'TRANSFER_FAILED': 'Transfer Failed',
+      'FEE_TRANSFER_FAILED': 'Fee Failed',
+      'CANCELLED': 'Cancelled'
+    };
+    return statusMap[status.toUpperCase()] || status;
+  };
+
   const getTransactionStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed':
-      case 'success':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'pending':
-      case 'processing':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'failed':
-      case 'rejected':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+    if (!status) return 'bg-gray-100 text-gray-800';
+    const normalized = status.toUpperCase();
+    if (normalized === 'COMPLETED' || normalized === 'COMPLETE' || normalized === 'SUCCESS') {
+      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
+    if (normalized === 'PENDING' || normalized === 'PROCESSING' || normalized === 'CONFIRMED') {
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+    }
+    if (normalized.includes('FAILED') || normalized === 'REJECTED' || normalized === 'CANCELLED') {
+      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+    }
+    return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
   };
 
   const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'deposit':
-        return '↘️';
-      case 'withdrawal':
-        return '↖️';
-      case 'trade':
-        return '🔄';
-      default:
-        return '💳';
+    if (!type) return '💳';
+    switch (type.toLowerCase()) {
+      case 'deposit': return '↘️';
+      case 'withdrawal': return '↖️';
+      case 'trade': return '🔄';
+      default: return '💳';
     }
+  };
+
+  const formatDate = (dateString: string | Date | null | undefined): string => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch { return 'Invalid Date'; }
+  };
+
+  const formatTime = (dateString: string | Date | null | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } catch { return ''; }
   };
 
   if (loading) {
@@ -217,30 +197,13 @@ const Wallet = () => {
           </Alert>
         )}
 
-        {showDefaultData && (
-          <Alert variant="info" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Showing default data. Some features may be limited until connection is restored.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-foreground">Wallet</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage your funds and track transactions
-            </p>
+            <p className="text-muted-foreground mt-2">Manage your funds and track transactions</p>
           </div>
           <div className="flex items-center gap-3 mt-4 md:mt-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-2">
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
@@ -255,62 +218,30 @@ const Wallet = () => {
           </div>
         </div>
 
-        {/* Balance Section */}
         <Card className="mb-8 border-primary/20 shadow-lg">
-          <CardHeader className="pb-4">
+          <CardHeader>
             <CardTitle className="text-2xl">Balance Overview</CardTitle>
-            <CardDescription>
-              {showDefaultData 
-                ? "Default balance shown (connection issue)" 
-                : "Your current wallet balance across all assets"}
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className={`p-6 rounded-xl border ${showDefaultData ? 'opacity-75' : ''}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">USDC Balance</p>
-                  <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300">USD Coin</Badge>
-                </div>
-                <p className="text-3xl font-bold text-foreground">
-                  ${balance?.usdc || "0.00"}
-                </p>
-                {showDefaultData && (
-                  <p className="text-xs text-muted-foreground mt-2">Default value</p>
-                )}
+              <div className="p-6 rounded-xl border">
+                <p className="text-sm text-muted-foreground mb-1">USDC Balance</p>
+                <p className="text-3xl font-bold text-foreground">${balance?.usdc || "0.00"}</p>
               </div>
-              
-              <div className={`p-6 rounded-xl border ${showDefaultData ? 'opacity-75' : ''}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">USDT Balance</p>
-                  <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-300">Tether</Badge>
-                </div>
-                <p className="text-3xl font-bold text-foreground">
-                  ${balance?.usdt || "0.00"}
-                </p>
-                {showDefaultData && (
-                  <p className="text-xs text-muted-foreground mt-2">Default value</p>
-                )}
+              <div className="p-6 rounded-xl border">
+                <p className="text-sm text-muted-foreground mb-1">USDT Balance</p>
+                <p className="text-3xl font-bold text-foreground">${balance?.usdt || "0.00"}</p>
               </div>
-              
-              <div className={`p-6 rounded-xl border ${showDefaultData ? 'opacity-75' : ''}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-muted-foreground">Total Balance</p>
-                  <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300">Combined</Badge>
-                </div>
-                <p className="text-3xl font-bold text-primary">
-                  ${balance?.total || "0.00"}
-                </p>
-                {showDefaultData && (
-                  <p className="text-xs text-muted-foreground mt-2">Default value</p>
-                )}
+              <div className="p-6 rounded-xl border">
+                <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
+                <p className="text-3xl font-bold text-primary">${balance?.total || "0.00"}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="addresses" className="space-y-6">
-          <TabsList className="grid w-full md:w-auto grid-cols-2">
+        <Tabs defaultValue="transactions" className="space-y-6">
+          <TabsList>
             <TabsTrigger value="addresses">Deposit Addresses</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
@@ -319,74 +250,17 @@ const Wallet = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Deposit Addresses</CardTitle>
-                <CardDescription>
-                  {showDefaultData 
-                    ? "Addresses unavailable due to connection issue" 
-                    : "Send funds to these addresses to deposit into your wallet"}
-                </CardDescription>
               </CardHeader>
               <CardContent>
-                {depositAddresses.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                      <span className="text-2xl">📍</span>
+                {depositAddresses.map((addr) => (
+                  <div key={addr.currency} className="p-4 border rounded-lg mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-bold">{addr.currency} ({addr.network})</span>
+                      <Button size="icon" variant="ghost" onClick={() => copyToClipboard(addr.address)}><Copy className="h-4 w-4" /></Button>
                     </div>
-                    <p className="text-muted-foreground mb-4">
-                      {showDefaultData 
-                        ? "Cannot load deposit addresses" 
-                        : "No deposit addresses available"}
-                    </p>
-                    <Button onClick={handleRefresh} disabled={refreshing}>
-                      {refreshing ? 'Refreshing...' : 'Try Again'}
-                    </Button>
+                    <code className="block p-2 bg-muted rounded text-xs break-all">{addr.address}</code>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {depositAddresses.map((addr) => (
-                      <div 
-                        key={`${addr.currency}-${addr.network}`} 
-                        className="p-4 border rounded-lg hover:border-primary/50 transition-colors"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3">
-                          <div className="flex items-center gap-3 mb-2 sm:mb-0">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="font-bold text-primary">
-                                {addr.currency === 'USDC' ? '$' : '₮'}
-                              </span>
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-foreground">{addr.currency}</h3>
-                              <p className="text-sm text-muted-foreground">Receive {addr.currency} on {addr.network}</p>
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="w-fit">
-                            {addr.network}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <code className="flex-1 p-3 bg-muted rounded-lg text-sm font-mono break-all border">
-                            {addr.address || 'Address not available'}
-                          </code>
-                          {addr.address && (
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => copyToClipboard(addr.address)}
-                              className="shrink-0"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        {addr.address && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Only send {addr.currency} on the {addr.network} network to this address
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </CardContent>
             </Card>
           </TabsContent>
@@ -394,114 +268,57 @@ const Wallet = () => {
           <TabsContent value="transactions">
             <Card>
               <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle>Transaction History</CardTitle>
-                    <CardDescription>
-                      {showDefaultData 
-                        ? "Transaction history unavailable" 
-                        : "Your recent wallet transactions"}
-                    </CardDescription>
-                  </div>
-                  {!showDefaultData && (
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate("/deposits")}
-                      >
-                        View Deposits
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate("/withdrawals")}
-                      >
-                        View Withdrawals
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <CardTitle>Transaction History</CardTitle>
               </CardHeader>
               <CardContent>
                 {transactions.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                      <span className="text-2xl">💳</span>
-                    </div>
-                    <p className="text-muted-foreground mb-4">
-                      {showDefaultData 
-                        ? "Cannot load transaction history" 
-                        : "No transactions yet"}
-                    </p>
-                    {!showDefaultData && (
-                      <Button onClick={() => navigate("/deposit")}>Make your first deposit</Button>
-                    )}
-                  </div>
+                  <p className="text-center py-12 text-muted-foreground">No transactions found.</p>
                 ) : (
-                  <div className="space-y-3">
-                    {transactions.slice(0, 10).map((tx) => (
-                      <div 
-                        key={tx.id} 
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex-1 mb-3 sm:mb-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="text-xl">
-                              {getTransactionIcon(tx.type)}
-                            </div>
+                  <div className="space-y-4">
+                    {transactions.slice(0, 10).map((tx) => {
+                      const isWithdrawal = tx.type?.toLowerCase() === 'withdrawal';
+                      return (
+                        <div key={tx.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="text-2xl">{getTransactionIcon(tx.type)}</div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-foreground capitalize">{tx.type}</span>
-                                <Badge 
-                                  variant="outline" 
-                                  className={getTransactionStatusColor(tx.status)}
-                                >
-                                  {tx.status}
+                                <span className="font-semibold capitalize">{tx.type}</span>
+                                <Badge variant="outline" className={getTransactionStatusColor(tx.status)}>
+                                  {normalizeStatus(tx.status)}
                                 </Badge>
                               </div>
                               <p className="text-sm text-muted-foreground">
-                                {new Date(tx.timestamp).toLocaleDateString()} • {new Date(tx.timestamp).toLocaleTimeString()}
+                                {formatDate(tx.timestamp)} • {formatTime(tx.timestamp)}
                               </p>
+                              {/* ✅ RESTORED: Transaction Hash Display */}
                               {tx.txHash && (
-                                <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px] sm:max-w-[300px]">
-                                  TX: {tx.txHash.slice(0, 16)}...
+                                <p className="text-xs text-muted-foreground mt-1 font-mono bg-muted/50 px-1 rounded inline-block">
+                                  {tx.txHash.slice(0, 8)}...{tx.txHash.slice(-6)}
                                 </p>
                               )}
                             </div>
                           </div>
+                          <div className="text-right mt-2 sm:mt-0">
+                            {/* ✅ FIXED: Correct sign and color */}
+                            <p className={`text-lg font-bold ${isWithdrawal ? 'text-red-600' : 'text-green-600'}`}>
+                              {isWithdrawal ? '-' : '+'}{tx.amount} {tx.currency}
+                            </p>
+                            {tx.txHash && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-primary"
+                                onClick={() => window.open(`https://polygonscan.com/tx/${tx.txHash}`, '_blank')}
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                Details
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className={`text-lg font-bold ${
-                            tx.type === 'withdrawal' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-                          }`}>
-                            {tx.type === 'withdrawal' ? '-' : '+'}{tx.amount} {tx.currency}
-                          </p>
-                          {tx.txHash && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="mt-2 h-8 text-primary hover:text-primary/80"
-                              onClick={() => window.open(`https://polygonscan.com/tx/${tx.txHash}`, '_blank')}
-                            >
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              View on Explorer
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {transactions.length > 10 && (
-                      <div className="text-center pt-4">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => navigate("/transactions")}
-                        >
-                          View All Transactions ({transactions.length})
-                        </Button>
-                      </div>
-                    )}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

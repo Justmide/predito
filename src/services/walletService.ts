@@ -213,100 +213,42 @@ export const walletService = {
     localStorage.removeItem('auth_user');
     console.log('[Wallet API] Full logout - cleared all auth data');
   },
-
+/**
+   * GET BALANCE
+   * FIXED: Maps generic "balance" to USDT because that is where scanner credits funds.
+   */
   async getBalance(suppressErrors = false): Promise<Balance> {
     const token = getAuthToken();
     const endpoint = `${API_BASE_URL}${WALLET_BASE_PATH}/balance`;
     
-    
-    console.log('[Wallet API] getBalance called', { 
-      hasToken: !!token,
-      endpoint,
-      suppressErrors 
-    });
-    
-    if (!token) {
-      console.error('[Wallet API] No auth token available');
-      if (!suppressErrors) {
-        throw new Error('Authentication required. Please login.');
-      }
-      return this.getDefaultBalance();
+    if (!token || isTokenExpired(token)) {
+      if (suppressErrors) return this.getDefaultBalance();
+      throw new Error('Authentication required');
     }
-    
-    // Check token expiry before making request
-    if (isTokenExpired(token)) {
-      console.warn('[Wallet API] Token expired, skipping API call');
-      if (!suppressErrors) {
-        throw new Error('Token expired. Please login again.');
-      }
-      return this.getDefaultBalance();
-    }
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-    
+
     try {
-      console.log('[Wallet API] Making balance request to:', endpoint);
       const response = await fetch(endpoint, {
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         method: 'GET',
       });
       
-      console.log('[Wallet API] Balance response status:', response.status);
-      
       const data = await handleResponse(response);
-      console.log('[Wallet API] Balance data received:', data);
       
-      // Handle different response formats
-      const result = {
-        usdc: data?.usdc?.toString() || 
-              data?.usdcBalance?.toString() || 
-              data.balance.toString() || 
-              '0.00',
-        usdt: data?.usdt?.toString() || 
-              data?.usdtBalance?.toString() || 
-              data?.balance?.usdt?.toString() || 
-              '0.00',
-        total: data?.total?.toString() || 
-               data.availableBalance?.toString() || 
-               (() => {
-                 const usdc = parseFloat(data?.usdc || data?.usdcBalance || data?.balance?.usdc || '0');
-                 const usdt = parseFloat(data?.usdt || data?.usdtBalance || data?.balance?.usdt || '0');
-                 return (usdc + usdt).toFixed(2);
-               })() || '0.00',
+      // LOGIC FIX: Prioritize mapping the main balance to USDT
+      // because the scanner records deposits as USDT.
+      const usdtVal = data?.usdt || data?.usdtBalance || data?.balance || data?.availableBalance || '0';
+      const usdcVal = data?.usdc || data?.usdcBalance || '0';
+
+      return {
+        usdt: parseFloat(usdtVal).toFixed(2),
+        usdc: parseFloat(usdcVal).toFixed(2),
+        total: (parseFloat(usdtVal) + parseFloat(usdcVal)).toFixed(2),
       };
-      
-      console.log('[Wallet API] Processed balance:', result);
-      return result;
-      
     } catch (error: any) {
-      console.error('[Wallet API] Error fetching balance:', error);
-      
-      // Handle 401 specifically
-      if (error.message === 'UNAUTHORIZED_401') {
-        console.warn('[Wallet API] 401 Unauthorized - token may be invalid');
-        if (!suppressErrors) {
-          throw new Error('UNAUTHORIZED_401'); // Let component handle logout
-        }
-      }
-      
-      // Check if it's a network error
-      if (error.message.includes('Failed to fetch') || 
-          error.message.includes('NetworkError') ||
-          error.message.includes('CORS')) {
-        console.error('[Wallet API] Network error, returning default balance');
-        if (!suppressErrors) {
-          throw new Error('Network error. Please check your connection.');
-        }
-      }
-      
-      // For other errors, return default balance if suppressing errors
-      if (suppressErrors) {
-        return this.getDefaultBalance();
-      }
-      
+      if (suppressErrors) return this.getDefaultBalance();
       throw error;
     }
   },

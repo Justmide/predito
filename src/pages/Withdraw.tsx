@@ -16,7 +16,7 @@ const Withdraw = () => {
   const navigate = useNavigate();
   const [currency, setCurrency] = useState("USDC");
   const [amount, setAmount] = useState("");
-  const [destinationAddress, setDestinationAddress] = useState("");
+  const [withdrawalAddress, setWithdrawalAddress] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -28,13 +28,24 @@ const Withdraw = () => {
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // 1. Basic Validation
     if (!amount || parseFloat(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
     
-    if (!destinationAddress) {
+    if (!withdrawalAddress) {
       toast.error("Please enter a destination address");
+      return;
+    }
+
+    // 2. Clean and Validate Address Format
+    const cleanedAddress = withdrawalAddress.trim();
+    
+    // Standard EVM Address Regex (0x followed by 40 hex characters)
+    const ethRegex = /^0x[a-fA-F0-9]{40}$/;
+    if (!ethRegex.test(cleanedAddress)) {
+      toast.error("Invalid wallet address format. Must be a 0x... Ethereum address.");
       return;
     }
     
@@ -45,19 +56,21 @@ const Withdraw = () => {
 
     try {
       setLoading(true);
+      
+      // 3. Send cleaned address to service
       await withdrawalService.initiateWithdrawal(token, {
         currency,
         amount,
-        destinationAddress,
-      });
-      
+        withdrawalAddress: cleanedAddress, 
+      });    
+
       toast.success("Withdrawal initiated successfully");
       setAmount("");
-      setDestinationAddress("");
+      setWithdrawalAddress("");
       
-      // Redirect to wallet after 2 seconds
       setTimeout(() => navigate("/wallet"), 2000);
     } catch (error: any) {
+      // The backend error "Invalid withdrawal address" will be caught here
       toast.error(error.message || "Failed to initiate withdrawal");
       console.error(error);
     } finally {
@@ -112,13 +125,13 @@ const Withdraw = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="destination">Destination Address</Label>
+                <Label htmlFor="destination">Withdrawal Address</Label>
                 <Input
                   id="destination"
                   type="text"
                   placeholder="0x..."
-                  value={destinationAddress}
-                  onChange={(e) => setDestinationAddress(e.target.value)}
+                  value={withdrawalAddress}
+                  onChange={(e) => setWithdrawalAddress(e.target.value)}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
