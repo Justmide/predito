@@ -163,7 +163,6 @@ export const PortfolioView = () => {
                   </div>
                 </div>
               ))}
-            </div>
           )}
         </CardContent>
       </Card>
