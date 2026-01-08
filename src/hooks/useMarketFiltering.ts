@@ -33,7 +33,7 @@ const matchesKeywords = (market: Market, keywords: string[]): boolean => {
   const question = (market.question || "").toLowerCase();
   const description = (market.description || "").toLowerCase();
   const category = (market.category || "").toLowerCase();
-  const tags = (market.tags || []).map(t => t.toLowerCase()).join(" ");
+  const tags = (market.tags || []).map(t => String(t).toLowerCase()).join(" ");
   
   const searchText = `${question} ${description} ${category} ${tags}`;
   
