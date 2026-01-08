@@ -57,7 +57,11 @@ const MarketDetails = () => {
 
   const safeToString = (value: any): string => {
     if (!value) return '';
-    if (typeof value === 'object') return value.name || value.label || '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      const potential = value.name || value.label || '';
+      return typeof potential === 'string' ? potential : '';
+    }
     return String(value);
   };
 

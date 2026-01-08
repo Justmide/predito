@@ -405,13 +405,30 @@ export const marketService = {
     const slug = market.slug || market.ticker || '';
     const id = market.id || market._id || slug;
 
+    const rawQuestion = market.question || market.title || market.label;
+    let question = 'Untitled';
+    if (typeof rawQuestion === 'string') {
+      question = rawQuestion;
+    }
+
+    const rawCategory = market.category;
+    let category = 'General';
+    if (typeof rawCategory === 'string') {
+      category = rawCategory;
+    } else if (rawCategory && typeof rawCategory === 'object') {
+      const name = rawCategory.name;
+      if (typeof name === 'string') {
+        category = name;
+      }
+    }
+
     return {
       id: String(id),
-      question: market.question || market.title || 'Untitled',
+      question,
       outcomes: this.normalizeOutcomes(market.outcomes || market.options),
       volume: String(market.volume || market.volume24h || "0"),
       endDateIso: market.endDateIso || market.endDate || market.expiresAt,
-      category: typeof market.category === 'string' ? market.category : (market.category?.name || 'General'),
+      category,
       tags: Array.isArray(market.tags) ? market.tags : [],
       description: market.description || '',
       image: market.image || market.imageUrl || market.icon,

@@ -59,7 +59,8 @@ const MarketCard = ({ market }: MarketCardProps) => {
     if (typeof firstTag === 'string') {
       tagText = firstTag;
     } else if (typeof firstTag === 'object' && firstTag !== null) {
-      tagText = firstTag.label || firstTag.name || firstTag.slug || '';
+      const potentialText = firstTag.label || firstTag.name || firstTag.slug || '';
+      tagText = typeof potentialText === 'string' ? potentialText : '';
     } else {
       tagText = String(firstTag);
     }
